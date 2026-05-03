@@ -1,0 +1,147 @@
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { buscarPrevisao } from "../services/sptransAPI";
+import MapView from "./MapView";
+
+vi.mock("leaflet", () => ({
+  default: {
+    Icon: vi.fn(function Icon(options) {
+      this.options = options;
+    }),
+  },
+}));
+
+vi.mock("react-leaflet", async () => {
+  const React = await import("react");
+
+  return {
+    MapContainer: ({ children }) =>
+      React.createElement("div", { "data-testid": "map-container" }, children),
+    TileLayer: () => React.createElement("div", { "data-testid": "tile-layer" }),
+    Marker: ({ children, eventHandlers, position }) =>
+      React.createElement(
+        "div",
+        {
+          "data-testid": "marker",
+          "data-position": JSON.stringify(position),
+        },
+        React.createElement(
+          "button",
+          {
+            type: "button",
+            onClick: () => eventHandlers?.click?.(),
+          },
+          "marker"
+        ),
+        children
+      ),
+    Popup: ({ children }) =>
+      React.createElement("div", { "data-testid": "popup" }, children),
+  };
+});
+
+vi.mock("../services/sptransAPI", () => ({
+  buscarPrevisao: vi.fn(),
+}));
+
+describe("MapView", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("renderiza paradas e onibus com Leaflet mockado", () => {
+    render(
+      <MapView
+        codigoLinha={101}
+        paradas={[{ cp: 10, np: "Parada Paulista", py: -23.5, px: -46.6 }]}
+        onibus={[{ p: "BUS-1", py: -23.51, px: -46.61, ta: "2026-06-22T12:00:00Z" }]}
+      />
+    );
+
+    expect(screen.getByTestId("map-container")).toBeInTheDocument();
+    expect(screen.getByText("Parada Paulista")).toBeInTheDocument();
+    expect(screen.getByText(/Codigo:|Código:/)).toBeInTheDocument();
+    expect(screen.getByText(/Onibus|Ônibus/)).toBeInTheDocument();
+    expect(screen.getAllByTestId("marker")).toHaveLength(2);
+  });
+
+  it("carrega e exibe previsoes normalizadas pelo backend ao clicar na parada", async () => {
+    const user = userEvent.setup();
+    buscarPrevisao.mockResolvedValueOnce({
+      linhas: [
+        {
+          codigoLinha: 101,
+          descricao: "Linha 101",
+          veiculos: [{ placa: "BUS-1", horaPrevista: "12:10", minutos: 10 }],
+        },
+      ],
+    });
+
+    render(
+      <MapView
+        codigoLinha={101}
+        paradas={[{ cp: 10, np: "Parada Paulista", py: -23.5, px: -46.6 }]}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "marker" }));
+
+    await waitFor(() => {
+      expect(buscarPrevisao).toHaveBeenCalledWith(10, 101);
+    });
+    expect(screen.getByText("101")).toBeInTheDocument();
+    expect(screen.getByText(/12:10/)).toBeInTheDocument();
+    expect(screen.getByText(/10 min/)).toBeInTheDocument();
+  });
+
+  it("exibe previsoes recebidas no formato bruto da SPTrans", async () => {
+    const user = userEvent.setup();
+    buscarPrevisao.mockResolvedValueOnce({
+      p: {
+        l: [{ c: "8000-10", vs: [{ p: "BUS-2", t: "12:30" }] }],
+      },
+    });
+
+    render(
+      <MapView
+        codigoLinha={101}
+        paradas={[{ cp: 20, np: "Parada Centro", py: -23.52, px: -46.62 }]}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "marker" }));
+
+    expect(await screen.findByText("8000-10")).toBeInTheDocument();
+    expect(screen.getByText(/12:30/)).toBeInTheDocument();
+  });
+
+  it("exibe estado vazio quando nao houver previsao disponivel", async () => {
+    const user = userEvent.setup();
+    buscarPrevisao.mockResolvedValueOnce(null);
+
+    render(
+      <MapView
+        codigoLinha={101}
+        paradas={[{ cp: 10, np: "Parada Paulista", py: -23.5, px: -46.6 }]}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "marker" }));
+
+    expect(await screen.findByText("Sem previsão disponível")).toBeInTheDocument();
+  });
+
+  it("nao chama a API e mostra vazio quando a linha nao foi selecionada", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <MapView paradas={[{ cp: 10, np: "Parada Paulista", py: -23.5, px: -46.6 }]} />
+    );
+
+    await user.click(screen.getByRole("button", { name: "marker" }));
+
+    expect(buscarPrevisao).not.toHaveBeenCalled();
+    expect(screen.getByText("Sem previsão disponível")).toBeInTheDocument();
+  });
+});
