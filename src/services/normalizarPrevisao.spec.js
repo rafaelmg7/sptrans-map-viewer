@@ -135,4 +135,66 @@ describe("normalizarPrevisoes", () => {
       },
     ]);
   });
+
+  it("preserva valores falsy validos para resistir a mutacoes de coalescencia", () => {
+    const resultado = normalizarPrevisoes({
+      linhas: [
+        {
+          codigoLinha: 0,
+          descricao: "",
+          veiculos: [
+            {
+              placa: "",
+              horario: "",
+              minutos: 0,
+              ativo: false,
+              py: 0,
+              px: 0,
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(resultado).toEqual([
+      {
+        placa: "",
+        horario: "",
+        minutos: 0,
+        ativo: false,
+        py: 0,
+        px: 0,
+        linha: 0,
+        descricaoLinha: 0,
+      },
+    ]);
+  });
+
+  it.each([
+    ["descricao explicita", { descricao: "Circular Centro" }, "Circular Centro"],
+    ["terminais lt0 e lt1", { lt0: "Terminal A", lt1: "Terminal B" }, "Terminal A ⇄ Terminal B"],
+    ["codigo c", { c: "8000-10" }, "8000-10"],
+    ["codigo cl", { cl: 101 }, 101],
+    ["codigoLinha", { codigoLinha: 202 }, 202],
+    ["sem identificadores", {}, "Linha"],
+  ])("aplica prioridade de descricao: %s", (_caso, linha, descricaoLinha) => {
+    expect(normalizarPrevisoes([{ ...linha, veiculos: [{}] }])[0].descricaoLinha).toBe(
+      descricaoLinha
+    );
+  });
+
+  it("mantem a ordem dos veiculos ao achatar varias linhas", () => {
+    const resultado = normalizarPrevisoes({
+      linhas: [
+        { codigoLinha: 1, veiculos: [{ placa: "A" }, { placa: "B" }] },
+        { codigoLinha: 2, veiculos: [{ placa: "C" }] },
+      ],
+    });
+
+    expect(resultado.map((veiculo) => `${veiculo.linha}:${veiculo.placa}`)).toEqual([
+      "1:A",
+      "1:B",
+      "2:C",
+    ]);
+  });
 });

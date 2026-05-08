@@ -211,6 +211,77 @@ describe("normalizePrevisao", () => {
       },
     ]);
   });
+
+  it("preserva valores falsy validos em vez de trocar por fallbacks", () => {
+    const resultado = normalizePrevisao(
+      {
+        parada: { codigoParada: 0, nome: "" },
+        atualizado: "",
+        linhas: [
+          {
+            codigoLinha: 0,
+            descricao: "",
+            veiculos: [
+              {
+                placa: "",
+                horaPrevista: "",
+                minutos: 0,
+                ativo: false,
+                py: 0,
+                px: 0,
+              },
+            ],
+          },
+        ],
+      },
+      { now: fixedNow }
+    );
+
+    expect(resultado).toEqual({
+      parada: { codigoParada: 0, nome: "" },
+      linhas: [
+        {
+          codigoLinha: 0,
+          descricao: 0,
+          veiculos: [
+            {
+              placa: "",
+              horaPrevista: "",
+              minutos: 0,
+              ativo: false,
+              py: 0,
+              px: 0,
+            },
+          ],
+        },
+      ],
+      atualizado: "",
+    });
+  });
+
+  it.each([
+    ["59 segundos antes", "2026-06-22T11:59:01.000Z", -1],
+    ["29 segundos antes", "2026-06-22T11:59:31.000Z", -0],
+    ["29 segundos depois", "2026-06-22T12:00:29.000Z", 0],
+    ["31 segundos depois", "2026-06-22T12:00:31.000Z", 1],
+  ])("arredonda minutos previstos no limite: %s", (_caso, dataPrevista, minutos) => {
+    const resultado = normalizePrevisao(
+      { l: [{ c: "1", vs: [{ ta: dataPrevista }] }] },
+      { now: fixedNow }
+    );
+
+    expect(resultado.linhas[0].veiculos[0].minutos).toBe(minutos);
+  });
+
+  it("aceita relogio numerico e relogio em funcao para data de atualizacao", () => {
+    expect(normalizePrevisao(null, { now: fixedNow.getTime() }).atualizado).toBe(
+      fixedNow.toISOString()
+    );
+
+    expect(normalizePrevisao(null, { now: () => fixedNow }).atualizado).toBe(
+      fixedNow.toISOString()
+    );
+  });
 });
 
 describe("createApp", () => {
@@ -232,6 +303,18 @@ describe("createApp", () => {
     expect(response.body).toEqual({ sucesso: true });
     expect(client.post).toHaveBeenCalledWith(
       `${apiBase}/Login/Autenticar?token=token%20teste`
+    );
+  });
+
+  it("codifica caracteres reservados do token antes de autenticar", async () => {
+    const client = makeClient();
+    const { app } = makeApp({ client, token: "abc 123/a+b?" });
+
+    const response = await request(app).post("/api/Login/Autenticar");
+
+    expect(response.status).toBe(200);
+    expect(client.post).toHaveBeenCalledWith(
+      `${apiBase}/Login/Autenticar?token=abc%20123%2Fa%2Bb%3F`
     );
   });
 
@@ -304,6 +387,20 @@ describe("createApp", () => {
     expect(response.body).toEqual({
       error: "Parametros codigoParada e codigoLinha sao obrigatorios.",
     });
+    expect(client.post).not.toHaveBeenCalled();
+    expect(client.get).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["/api/Previsao", "sem os dois parametros"],
+    ["/api/Previsao?codigoLinha=101", "sem codigoParada"],
+    ["/api/Previsao?codigoParada=10", "sem codigoLinha"],
+  ])("GET /api/Previsao retorna 400 %s", async (url) => {
+    const { app, client } = makeApp();
+
+    const response = await request(app).get(url);
+
+    expect(response.status).toBe(400);
     expect(client.post).not.toHaveBeenCalled();
     expect(client.get).not.toHaveBeenCalled();
   });
@@ -403,6 +500,21 @@ describe("createApp", () => {
     expect(response.status).toBe(200);
     expect(client.get).toHaveBeenCalledWith(
       `${apiBase}/Posicao?codigoLinha=101&codigoLinha=202`
+    );
+  });
+
+  it("proxy generico codifica espacos, barras e acentos em query params", async () => {
+    const client = makeClient();
+    client.get.mockResolvedValueOnce({ data: [] });
+    const { app } = makeApp({ client });
+
+    const response = await request(app).get(
+      "/api/Linha/Buscar?termosBusca=Terminal Sé/Azul"
+    );
+
+    expect(response.status).toBe(200);
+    expect(client.get).toHaveBeenCalledWith(
+      `${apiBase}/Linha/Buscar?termosBusca=Terminal+S%C3%A9%2FAzul`
     );
   });
 

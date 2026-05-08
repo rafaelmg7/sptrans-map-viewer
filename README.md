@@ -1,190 +1,153 @@
-# 🚌 Projeto SPTrans Map Viewer
+# SPTrans Map Viewer
 
-Este projeto é uma aplicação web que exibe, em um mapa interativo, as **linhas de ônibus de São Paulo**, seus **pontos de parada** e a **posição em tempo real dos veículos**.  
-A aplicação utiliza a **API pública da SPTrans (Olho Vivo)** através de um **backend em Node.js**, que atua como intermediário para proteger a chave de acesso e facilitar a integração com o frontend em React.
+Aplicação web para buscar linhas de ônibus de São Paulo, visualizar paradas no mapa e consultar previsão/posição de veículos usando a API Olho Vivo da SPTrans por meio de um backend próprio.
 
-
-![Imagem do WhatsApp de 2025-11-05 à(s) 21 29 02_ca2aa89d](https://github.com/user-attachments/assets/1bca2d5c-8b4c-43bf-90f2-939ba4a9ac36)
-
-
----
-
-## 👥 Membros do Grupo
+## Membros do Grupo
 
 - Diogo Tuler Chaves
 
----
+## Sistema
 
-## 📌 Sobre o Sistema
+O sistema possui:
 
-O SPTrans Map Viewer permite buscar linhas de ônibus de São Paulo, selecionar uma linha, visualizar suas paradas no mapa, consultar previsões de chegada e acompanhar posições de veículos em tempo real quando a API da SPTrans retorna esses dados.
+- frontend em React com mapa Leaflet;
+- backend em Node.js/Express para autenticar e consultar a SPTrans;
+- normalização de respostas da SPTrans para formatos mais simples de usar na interface;
+- testes automatizados com cobertura e execução em CI.
 
-O sistema foi estruturado com um frontend React para a interação do usuário e um backend Express que funciona como proxy autenticado para a API Olho Vivo. Essa separação evita expor a chave da SPTrans no navegador e facilita a criação de testes unitários e de integração.
+A chave da SPTrans fica apenas no backend, em `backend/.env`, para não ser exposta no navegador.
 
----
+## Tecnologias
 
-## 🚀 Funcionalidades
+- React, Vite e Leaflet
+- Node.js e Express
+- Axios
+- Vitest
+- Testing Library
+- Supertest
+- jsdom
+- Coverage V8/Istanbul
+- GitHub Actions
+- Codecov
 
-- Exibe o mapa com base no Leaflet.
-- Mostra todas as **paradas** de uma linha de ônibus selecionada.
-- Ao clicar em uma parada, exibe a **previsão de chegada dos ônibus**.
-- Mostra **ícones personalizados** para ônibus e paradas.
-- Atualiza a **posição dos veículos em tempo real**.
+## Como Rodar
 
----
-
-## 🧩 Tecnologias Utilizadas
-
-- **Frontend:** React + Vite + Leaflet
-- **Backend:** Node.js + Express
-- **API:** SPTrans Olho Vivo
-- **Testes:** Vitest, Testing Library, Supertest e jsdom
-- **Cobertura:** Vitest Coverage com provider V8/Istanbul
-- **CI/CD:** GitHub Actions com execução em Linux, macOS e Windows
-- **Relatórios:** Codecov para publicação dos relatórios de cobertura
-
----
-
-## 🧠 Pré-requisitos
-
-Antes de rodar o projeto, você precisará ter instalado:
-
-- [Node.js 20.6+](https://nodejs.org/)
-- [npm](https://www.npmjs.com/)
-- [SPTrans API Key](http://www.sptrans.com.br/desenvolvedores/)
-
----
-
-## 💻 Configuração do Frontend
-
-1. Instale as dependências:
-
-   ```bash
-   npm install
-   ```
-
-2. Crie o arquivo `.env` com o conteúdo:
-
-   ```bash
-   VITE_API_URL=http://localhost:3000/api
-   ```
-
-3. Execute o projeto:
-   ```bash
-   npm run dev
-   ```
-
-O frontend estará disponível em:  
-👉 [http://localhost:5173](http://localhost:5173)
-
----
-
-## ⚙️ Configuração do Backend
-
-1. Entre na pasta do backend:
-
-   ```bash
-   cd backend
-   ```
-
-2. Crie o arquivo `.env` com o conteúdo:
-
-   ```bash
-   SPTRANS_API_KEY=coloque_sua_chave_aqui
-   PORT=3000
-   ```
-
-3. Instale as dependências:
-
-   ```bash
-   npm install
-   ```
-
-4. Inicie o servidor:
-   ```bash
-   npm start
-   ```
-
-O backend será iniciado em:  
-👉 [http://localhost:3000](http://localhost:3000)
-
----
-
-## 🌍 Rotas da API do Backend
-
-| Rota                                                         | Método | Descrição                              |
-| ------------------------------------------------------------ | ------ | -------------------------------------- |
-| `/api/Linha/Buscar?termosBusca=term`                         | GET    | Busca linhas de ônibus pelo nome       |
-| `/api/Parada/BuscarParadasPorLinha?codigoLinha=XXXX`         | GET    | Retorna paradas de uma linha           |
-| `/api/Previsao?codigoParada=XXXX&codigoLinha=YYYY`           | GET    | Retorna previsão de chegada dos ônibus |
-| `/api/Posicao/Linha?codigoLinha=XXXX`                        | GET    | Retorna posição atual dos ônibus       |
-
----
-
-## 🗺️ Funcionalidade do Mapa
-
-- O mapa é renderizado usando **Leaflet**.
-- Cada **parada** é marcada com um ícone específico.
-- Cada **ônibus** tem um ícone de ônibus.
-- Ao clicar em uma parada:
-  - É feita uma requisição ao endpoint `/api/Previsao/Parada`.
-  - Um **popup** é aberto exibindo a previsão de chegada.
-
----
-
-## 🧹 Scripts Disponíveis
-
-### Backend
-
-- `npm start` → inicia o servidor Express
-- `npm test` → executa os testes do backend
-- `npm run coverage` → executa os testes do backend com cobertura
-
-### Frontend
-
-- `npm run dev` → roda o Vite em modo de desenvolvimento
-- `npm run build` → gera build para produção
-- `npm test` → executa os testes do frontend
-- `npm run coverage` → executa os testes do frontend com cobertura
-- `npm run test:all` → executa testes de frontend e backend
-- `npm run coverage:all` → executa cobertura de frontend e backend
-
----
-
-## ✅ Como Executar os Testes Localmente
-
-Instale as dependências do frontend e do backend:
+Instale as dependências:
 
 ```bash
 npm install
 npm --prefix backend install
 ```
 
-Execute todos os testes:
+Crie `backend/.env`:
+
+```env
+SPTRANS_API_KEY=sua_chave_sptrans
+PORT=3000
+```
+
+Em um terminal, rode o backend:
+
+```bash
+cd backend
+npm start
+```
+
+Em outro terminal, rode o frontend:
+
+```bash
+npm run dev
+```
+
+A aplicação fica disponível em:
+
+```text
+http://localhost:5173
+```
+
+## Como Executar os Testes
+
+Todos os testes:
 
 ```bash
 npm run test:all
 ```
 
-Execute a cobertura completa:
+Todos os testes com cobertura:
 
 ```bash
 npm run coverage:all
 ```
 
-Os relatórios HTML são gerados em:
+Relatórios HTML:
 
 - `coverage/index.html`
 - `backend/coverage/index.html`
 
-O projeto exige cobertura mínima de 90% em statements, lines e functions, e 80% em branches.
+## Cobertura Atual
 
-A suíte atual contém mais de 30 testes de unidade/componente e mais de 5 testes de integração do backend, cobrindo normalização de dados, chamadas da API pública do frontend, renderização de mapa e comportamento das rotas Express.
+Última execução local:
 
----
+| Parte | Testes | Statements | Branches | Functions | Lines |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Frontend | 36 | 97.14% | 98.55% | 96.87% | 97.97% |
+| Backend | 29 | 98.83% | 95.65% | 100% | 100% |
 
-## 🔁 Integração Contínua e Codecov
+Total atual: 65 testes automatizados.
 
-O workflow em `.github/workflows/node.js.yml` executa instalação, lint, build e cobertura automaticamente em Linux, macOS e Windows a cada push ou pull request para `main`.
+O requisito da disciplina é cobertura maior ou igual a 80%. O projeto também configura thresholds mínimos no Vitest: 90% para statements, lines e functions, e 80% para branches.
 
-O upload dos relatórios `coverage/lcov.info` e `backend/coverage/lcov.info` é feito pelo `codecov/codecov-action`. Para repositórios privados ou quando o Codecov exigir autenticação, configure o segredo `CODECOV_TOKEN` nas configurações do repositório no GitHub.
+## Testes Implementados
+
+| Arquivo | Quantidade | Tipo | O que verifica |
+| --- | ---: | --- | --- |
+| `src/App.spec.jsx` | 3 | Componente/comportamento | autenticação inicial, busca de linhas, seleção, carregamento do mapa e troca de intervalo de atualização |
+| `src/components/MapView.spec.jsx` | 5 | Componente/comportamento | renderização com Leaflet mockado, clique em parada, previsão normalizada, previsão bruta e estado vazio |
+| `src/services/sptransAPI.spec.js` | 15 | Unidade/API pública | chamadas Axios, fallback em erros, retornos vazios seguros e encoding de parâmetros especiais |
+| `src/services/normalizarPrevisao.spec.js` | 13 | Unidade/normalização | formatos da SPTrans, payloads vazios, fallbacks, ordem dos veículos, tabela de prioridade de descrição e valores falsy |
+| `backend/app.spec.js` | 29 | Unidade e integração | normalização do backend, rotas Express, autenticação, cache, erros controlados, encoding, query params repetidos e casos de borda de tempo |
+
+## Estratégias de Teste
+
+- Testes de unidade por API pública: funções de serviço e normalizadores são testados pelo comportamento exportado.
+- Testes de componente: telas React são testadas por interação observável, não por detalhes internos.
+- Testes de integração: rotas Express são testadas via Supertest, simulando requisições HTTP.
+- Testes orientados a mutação: há casos para capturar trocas comuns como `??` por `||`, remoção de encoding, mudança de ordem de fallback, remoção de cache, alteração de arredondamento de minutos e perda de valores falsy como `0`, `false` e string vazia.
+- Testes de erro: falhas externas são simuladas para garantir respostas controladas e retornos seguros.
+- Testes parametrizados: tabelas com `it.each` cobrem variações de descrição, parâmetros obrigatórios e limites de tempo.
+
+## CI/CD e Codecov
+
+O workflow fica em:
+
+```text
+.github/workflows/node.js.yml
+```
+
+Ele executa automaticamente em push e pull request:
+
+- instalação de dependências;
+- lint;
+- build;
+- testes com cobertura;
+- upload dos relatórios para o Codecov.
+
+O workflow roda em:
+
+- Linux
+- macOS
+- Windows
+
+Para habilitar o Codecov, crie o projeto em `https://codecov.io` e configure no GitHub o secret:
+
+```text
+CODECOV_TOKEN
+```
+
+## Links Para Submissão
+
+Preencher antes de entregar no Moodle:
+
+- Repositório GitHub:
+- Último build verde do GitHub Actions:
+- Relatório do Codecov:

@@ -54,6 +54,16 @@ describe("sptransAPI", () => {
       expect(get).toHaveBeenCalledWith("/Linha/Buscar?termosBusca=8000");
     });
 
+    it("codifica termos de busca com espacos e caracteres especiais", async () => {
+      const get = vi.spyOn(api, "get").mockResolvedValueOnce({ data: [] });
+
+      await buscarLinhas("Terminal A/B");
+
+      expect(get).toHaveBeenCalledWith(
+        "/Linha/Buscar?termosBusca=Terminal+A%2FB"
+      );
+    });
+
     it("retorna array vazio e registra erro em falha", async () => {
       vi.spyOn(api, "get").mockRejectedValueOnce(new Error("Network Error"));
 
@@ -74,6 +84,16 @@ describe("sptransAPI", () => {
 
       expect(get).toHaveBeenCalledWith(
         "/Parada/BuscarParadasPorLinha?codigoLinha=101"
+      );
+    });
+
+    it("codifica codigo de linha textual sem montar query manualmente", async () => {
+      const get = vi.spyOn(api, "get").mockResolvedValueOnce({ data: [] });
+
+      await buscarParadasPorLinha("8000-10 A/B");
+
+      expect(get).toHaveBeenCalledWith(
+        "/Parada/BuscarParadasPorLinha?codigoLinha=8000-10+A%2FB"
       );
     });
 
@@ -126,6 +146,16 @@ describe("sptransAPI", () => {
 
       expect(get).toHaveBeenCalledWith(
         "/Previsao?codigoParada=10&codigoLinha=101"
+      );
+    });
+
+    it("codifica parametros de previsao independentemente", async () => {
+      const get = vi.spyOn(api, "get").mockResolvedValueOnce({ data: {} });
+
+      await buscarPrevisao("parada 10", "linha/101");
+
+      expect(get).toHaveBeenCalledWith(
+        "/Previsao?codigoParada=parada+10&codigoLinha=linha%2F101"
       );
     });
 
