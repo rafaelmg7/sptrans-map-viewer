@@ -42,6 +42,7 @@ vi.mock("./components/MapView", async () => {
 describe("App", () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    vi.clearAllMocks();
     vi.spyOn(console, "log").mockImplementation(() => {});
     autenticarSPTrans.mockResolvedValue(undefined);
     buscarLinhas.mockResolvedValue([]);
@@ -61,6 +62,27 @@ describe("App", () => {
     expect(autenticarSPTrans).toHaveBeenCalledTimes(1);
   });
 
+  it("renderiza o layout principal com controles centralizados", () => {
+    render(<App />);
+
+    expect(
+      screen.getByRole("heading", { name: "Painel SPTrans em tempo real" })
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Numero ou nome da linha")).toBeInTheDocument();
+    expect(screen.getByLabelText("Linha encontrada")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Buscar" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Mostrar no mapa" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Atualizar agora" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Limpar painel" })).toBeDisabled();
+    expect(screen.getByLabelText("Autoatualizar a cada 5s")).toBeChecked();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Aguardando carregamento da linha."
+    );
+    expect(screen.getByLabelText("Resumo do mapa")).toHaveTextContent("0linhas");
+    expect(screen.getByLabelText("Resumo do mapa")).toHaveTextContent("0paradas");
+    expect(screen.getByLabelText("Resumo do mapa")).toHaveTextContent("0onibus");
+  });
+
   it("busca linhas, popula o select, seleciona uma linha e carrega mapa", async () => {
     const linhas = [{ cl: 101, lt: "8000-10", tp: "Terminal A", ts: "Terminal B" }];
     const paradas = [{ cp: 10, np: "Parada Paulista", py: -23.5, px: -46.6 }];
@@ -72,10 +94,9 @@ describe("App", () => {
 
     const { unmount } = render(<App />);
 
-    fireEvent.change(
-      screen.getByPlaceholderText("Digite o número ou nome da linha..."),
-      { target: { value: "8000" } }
-    );
+    fireEvent.change(screen.getByLabelText("Numero ou nome da linha"), {
+      target: { value: "8000" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Buscar" }));
 
     await flushAsync();
@@ -94,6 +115,8 @@ describe("App", () => {
     expect(screen.getByTestId("map-props")).toHaveTextContent('"codigoLinha":101');
     expect(screen.getByTestId("map-props")).toHaveTextContent("Parada Paulista");
     expect(screen.getByTestId("map-props")).toHaveTextContent("BUS-1");
+    expect(screen.getByLabelText("Resumo do mapa")).toHaveTextContent("1paradas");
+    expect(screen.getByLabelText("Resumo do mapa")).toHaveTextContent("1onibus");
 
     await act(async () => {
       vi.advanceTimersByTime(5000);
@@ -124,10 +147,9 @@ describe("App", () => {
 
     render(<App />);
 
-    fireEvent.change(
-      screen.getByPlaceholderText("Digite o número ou nome da linha..."),
-      { target: { value: "linha" } }
-    );
+    fireEvent.change(screen.getByLabelText("Numero ou nome da linha"), {
+      target: { value: "linha" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Buscar" }));
 
     await flushAsync();
@@ -154,5 +176,117 @@ describe("App", () => {
     await flushAsync();
 
     expect(buscarPosicaoDosOnibus).toHaveBeenLastCalledWith(202);
+  });
+
+  it("mantem historico de buscas e permite repetir uma busca recente", async () => {
+    buscarLinhas
+      .mockResolvedValueOnce([{ cl: 101, lt: "8000-10", tp: "A", ts: "B" }])
+      .mockResolvedValueOnce([{ cl: 202, lt: "9000-10", tp: "C", ts: "D" }])
+      .mockResolvedValueOnce([{ cl: 101, lt: "8000-10", tp: "A", ts: "B" }]);
+
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText("Numero ou nome da linha"), {
+      target: { value: "8000" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Buscar" }));
+
+    await flushAsync();
+
+    expect(screen.getByLabelText("Historico de buscas")).toHaveTextContent("8000");
+
+    fireEvent.change(screen.getByLabelText("Numero ou nome da linha"), {
+      target: { value: "9000" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Buscar" }));
+
+    await flushAsync();
+
+    fireEvent.click(screen.getByRole("button", { name: "8000" }));
+
+    await flushAsync();
+
+    expect(buscarLinhas).toHaveBeenLastCalledWith("8000");
+    expect(screen.getByLabelText("Numero ou nome da linha")).toHaveValue("8000");
+  });
+
+  it("atualiza onibus manualmente e limpa o painel", async () => {
+    const linhas = [{ cl: 101, lt: "8000-10", tp: "Terminal A", ts: "Terminal B" }];
+    const paradas = [{ cp: 10, np: "Parada Paulista", py: -23.5, px: -46.6 }];
+
+    buscarLinhas.mockResolvedValueOnce(linhas);
+    buscarParadasPorLinha.mockResolvedValueOnce(paradas);
+    buscarPosicaoDosOnibus
+      .mockResolvedValueOnce([{ p: "BUS-1", py: -23.51, px: -46.61 }])
+      .mockResolvedValueOnce([{ p: "BUS-2", py: -23.52, px: -46.62 }]);
+
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText("Numero ou nome da linha"), {
+      target: { value: "8000" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Buscar" }));
+    await flushAsync();
+
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "101" } });
+    fireEvent.click(screen.getByRole("button", { name: "Mostrar no mapa" }));
+    await flushAsync();
+
+    fireEvent.click(screen.getByRole("button", { name: "Atualizar agora" }));
+    await flushAsync();
+
+    expect(buscarPosicaoDosOnibus).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId("map-props")).toHaveTextContent("BUS-2");
+    expect(screen.getByRole("status")).toHaveTextContent("Ultima atualizacao:");
+
+    fireEvent.click(screen.getByRole("button", { name: "Limpar painel" }));
+
+    expect(screen.getByLabelText("Numero ou nome da linha")).toHaveValue("");
+    expect(screen.getByLabelText("Linha encontrada")).toBeDisabled();
+    expect(screen.getByTestId("map-props")).toHaveTextContent('"paradas":[]');
+    expect(screen.getByTestId("map-props")).toHaveTextContent('"onibus":[]');
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Aguardando carregamento da linha."
+    );
+  });
+
+  it("desliga e religa a autoatualizacao dos onibus", async () => {
+    const linhas = [{ cl: 101, lt: "8000-10", tp: "Terminal A", ts: "Terminal B" }];
+
+    buscarLinhas.mockResolvedValueOnce(linhas);
+    buscarParadasPorLinha.mockResolvedValue([]);
+    buscarPosicaoDosOnibus.mockResolvedValue([]);
+
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText("Numero ou nome da linha"), {
+      target: { value: "8000" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Buscar" }));
+    await flushAsync();
+
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "101" } });
+    fireEvent.click(screen.getByRole("button", { name: "Mostrar no mapa" }));
+    await flushAsync();
+
+    expect(buscarPosicaoDosOnibus).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByLabelText("Autoatualizar a cada 5s"));
+
+    await act(async () => {
+      vi.advanceTimersByTime(5000);
+    });
+    await flushAsync();
+
+    expect(buscarPosicaoDosOnibus).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByLabelText("Autoatualizar a cada 5s"));
+
+    await act(async () => {
+      vi.advanceTimersByTime(5000);
+    });
+    await flushAsync();
+
+    expect(buscarPosicaoDosOnibus).toHaveBeenCalledTimes(2);
   });
 });

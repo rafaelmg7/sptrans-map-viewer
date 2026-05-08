@@ -13,6 +13,9 @@ O sistema possui:
 - frontend em React com mapa Leaflet;
 - backend em Node.js/Express para autenticar e consultar a SPTrans;
 - normalização de respostas da SPTrans para formatos mais simples de usar na interface;
+- histórico de buscas recentes;
+- atualização manual e autoatualização dos veículos;
+- ação para limpar o painel e reiniciar a exploração;
 - testes automatizados com cobertura e execução em CI.
 
 A chave da SPTrans fica apenas no backend, em `backend/.env`, para não ser exposta no navegador.
@@ -90,10 +93,10 @@ Relatórios HTML:
 
 | Parte | Testes | Statements | Branches | Functions | Lines |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Frontend | 36 | 97.14% | 98.55% | 96.87% | 97.97% |
+| Frontend | 40 | 96.83% | 95.78% | 97.82% | 97.35% |
 | Backend | 29 | 98.83% | 95.65% | 100% | 100% |
 
-Total atual: 65 testes automatizados.
+Total atual: 69 testes automatizados.
 
 O requisito da disciplina é cobertura maior ou igual a 80%. O projeto também configura thresholds mínimos no Vitest: 90% para statements, lines e functions, e 80% para branches.
 
@@ -101,7 +104,7 @@ O requisito da disciplina é cobertura maior ou igual a 80%. O projeto também c
 
 | Arquivo | Quantidade | Tipo | O que verifica |
 | --- | ---: | --- | --- |
-| `src/App.spec.jsx` | 3 | Componente/comportamento | autenticação inicial, busca de linhas, seleção, carregamento do mapa e troca de intervalo de atualização |
+| `src/App.spec.jsx` | 7 | Componente/comportamento | autenticação inicial, layout principal, busca de linhas, seleção, carregamento do mapa, histórico de buscas, atualização manual, limpeza do painel e toggle de autoatualização |
 | `src/components/MapView.spec.jsx` | 5 | Componente/comportamento | renderização com Leaflet mockado, clique em parada, previsão normalizada, previsão bruta e estado vazio |
 | `src/services/sptransAPI.spec.js` | 15 | Unidade/API pública | chamadas Axios, fallback em erros, retornos vazios seguros e encoding de parâmetros especiais |
 | `src/services/normalizarPrevisao.spec.js` | 13 | Unidade/normalização | formatos da SPTrans, payloads vazios, fallbacks, ordem dos veículos, tabela de prioridade de descrição e valores falsy |
