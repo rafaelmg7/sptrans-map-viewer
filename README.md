@@ -33,21 +33,32 @@ A chave da SPTrans fica apenas no backend, em `backend/.env`, para não ser expo
 - GitHub Actions
 - Codecov
 
-## Como Rodar
+## Configuracao
 
-Instale as dependências:
+Instale as dependencias do frontend e do backend:
 
 ```bash
 npm install
 npm --prefix backend install
 ```
 
-Crie `backend/.env`:
+Crie os arquivos de ambiente a partir dos exemplos versionados:
+
+```bash
+cp .env.example .env
+cp backend/.env.example backend/.env
+```
+
+Preencha `backend/.env` com sua chave da SPTrans:
 
 ```env
 SPTRANS_API_KEY=sua_chave_sptrans
 PORT=3000
 ```
+
+O arquivo `.env` do frontend pode manter o valor padrao quando o backend estiver rodando em `http://localhost:3000`.
+
+## Como Rodar
 
 Em um terminal, rode o backend:
 
@@ -146,11 +157,3 @@ Para habilitar o Codecov, crie o projeto em `https://codecov.io` e configure no 
 ```text
 CODECOV_TOKEN
 ```
-
-## Links Para Submissão
-
-Preencher antes de entregar no Moodle:
-
-- Repositório GitHub:
-- Último build verde do GitHub Actions:
-- Relatório do Codecov:
