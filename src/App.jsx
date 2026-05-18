@@ -7,6 +7,7 @@ import {
   buscarParadasPorLinha,
   buscarPosicaoDosOnibus,
 } from "./services/sptransAPI";
+import { AUTO_UPDATE_INTERVAL_MS } from "./config";
 
 function App() {
   const [termo, setTermo] = useState("");
@@ -76,7 +77,10 @@ function App() {
     limparIntervalo();
 
     if (autoAtualizar) {
-      intervalRef.current = setInterval(() => atualizarOnibusDaLinha(linha), 5000);
+      intervalRef.current = setInterval(
+        () => atualizarOnibusDaLinha(linha),
+        AUTO_UPDATE_INTERVAL_MS
+      );
     }
   };
 
@@ -108,7 +112,7 @@ function App() {
     if (ligado && linhaSelecionada) {
       intervalRef.current = setInterval(
         () => atualizarOnibusDaLinha(linhaSelecionada),
-        5000
+        AUTO_UPDATE_INTERVAL_MS
       );
     }
   };

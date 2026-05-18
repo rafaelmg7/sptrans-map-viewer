@@ -1,0 +1,1 @@
+export const AUTO_UPDATE_INTERVAL_MS = 5000;
