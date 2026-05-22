@@ -7,6 +7,7 @@ import {
   buscarParadasPorLinha,
   buscarPosicaoDosOnibus,
 } from "./services/sptransAPI";
+import { AUTO_UPDATE_INTERVAL_MS } from "./config";
 
 async function flushAsync() {
   await act(async () => {
@@ -119,7 +120,7 @@ describe("App", () => {
     expect(screen.getByLabelText("Resumo do mapa")).toHaveTextContent("1onibus");
 
     await act(async () => {
-      vi.advanceTimersByTime(5000);
+      vi.advanceTimersByTime(AUTO_UPDATE_INTERVAL_MS);
     });
     await flushAsync();
 
@@ -128,7 +129,7 @@ describe("App", () => {
     unmount();
 
     await act(async () => {
-      vi.advanceTimersByTime(5000);
+      vi.advanceTimersByTime(AUTO_UPDATE_INTERVAL_MS);
     });
     await flushAsync();
 
@@ -171,7 +172,7 @@ describe("App", () => {
     expect(buscarParadasPorLinha).toHaveBeenCalledWith(202);
 
     await act(async () => {
-      vi.advanceTimersByTime(5000);
+      vi.advanceTimersByTime(AUTO_UPDATE_INTERVAL_MS);
     });
     await flushAsync();
 
@@ -274,7 +275,7 @@ describe("App", () => {
     fireEvent.click(screen.getByLabelText("Autoatualizar a cada 5s"));
 
     await act(async () => {
-      vi.advanceTimersByTime(5000);
+      vi.advanceTimersByTime(AUTO_UPDATE_INTERVAL_MS);
     });
     await flushAsync();
 
@@ -283,7 +284,7 @@ describe("App", () => {
     fireEvent.click(screen.getByLabelText("Autoatualizar a cada 5s"));
 
     await act(async () => {
-      vi.advanceTimersByTime(5000);
+      vi.advanceTimersByTime(AUTO_UPDATE_INTERVAL_MS);
     });
     await flushAsync();
 
