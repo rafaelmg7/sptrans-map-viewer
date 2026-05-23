@@ -46,6 +46,11 @@ function App() {
 
     if (!termoNormalizado) {
       setLinhas([]);
+      setLinhaSelecionada(null);
+      setParadas([]);
+      setOnibus([]);
+      setUltimaAtualizacao(null);
+      limparIntervalo();
       return;
     }
 
