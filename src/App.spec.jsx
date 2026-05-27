@@ -136,6 +136,51 @@ describe("App", () => {
     expect(buscarPosicaoDosOnibus).toHaveBeenCalledTimes(2);
   });
 
+  it("limpa dados carregados quando a busca fica vazia", async () => {
+    const linhas = [{ cl: 101, lt: "8000-10", tp: "Terminal A", ts: "Terminal B" }];
+    const paradas = [{ cp: 10, np: "Parada Paulista", py: -23.5, px: -46.6 }];
+    const veiculos = [{ p: "BUS-1", py: -23.51, px: -46.61 }];
+
+    buscarLinhas.mockResolvedValueOnce(linhas);
+    buscarParadasPorLinha.mockResolvedValueOnce(paradas);
+    buscarPosicaoDosOnibus.mockResolvedValue(veiculos);
+
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText("Numero ou nome da linha"), {
+      target: { value: "8000" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Buscar" }));
+    await flushAsync();
+
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "101" } });
+    fireEvent.click(screen.getByRole("button", { name: "Mostrar no mapa" }));
+    await flushAsync();
+
+    expect(screen.getByTestId("map-props")).toHaveTextContent("Parada Paulista");
+    expect(screen.getByTestId("map-props")).toHaveTextContent("BUS-1");
+
+    fireEvent.change(screen.getByLabelText("Numero ou nome da linha"), {
+      target: { value: "   " },
+    });
+    fireEvent.submit(screen.getByRole("button", { name: "Buscar" }).closest("form"));
+    await flushAsync();
+
+    expect(screen.getByLabelText("Linha encontrada")).toBeDisabled();
+    expect(screen.getByTestId("map-props")).toHaveTextContent('"paradas":[]');
+    expect(screen.getByTestId("map-props")).toHaveTextContent('"onibus":[]');
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Aguardando carregamento da linha."
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(AUTO_UPDATE_INTERVAL_MS);
+    });
+    await flushAsync();
+
+    expect(buscarPosicaoDosOnibus).toHaveBeenCalledTimes(1);
+  });
+
   it("substitui o intervalo anterior ao carregar outra linha", async () => {
     const linhas = [
       { cl: 101, lt: "8000-10", tp: "Terminal A", ts: "Terminal B" },
