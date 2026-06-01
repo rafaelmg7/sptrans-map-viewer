@@ -140,6 +140,9 @@ function App() {
 
   const podeLimpar =
     termo || linhas.length > 0 || paradas.length > 0 || onibus.length > 0;
+  const descricaoLinhaSelecionada = linhaSelecionada
+    ? `${linhaSelecionada.lt} - ${linhaSelecionada.tp} ⇄ ${linhaSelecionada.ts}`
+    : null;
 
   return (
     <div className="app-shell">
@@ -265,6 +268,13 @@ function App() {
               </button>
             </div>
           </div>
+
+          {descricaoLinhaSelecionada && (
+            <div className="selected-line" aria-label="Linha ativa">
+              <span>Linha ativa</span>
+              <strong>{descricaoLinhaSelecionada}</strong>
+            </div>
+          )}
 
           <p className="status-line" role="status">
             {ultimaAtualizacao
