@@ -111,6 +111,9 @@ describe("App", () => {
 
     await flushAsync();
 
+    expect(screen.getByLabelText("Linha ativa")).toHaveTextContent(
+      "8000-10 - Terminal A ⇄ Terminal B"
+    );
     expect(buscarParadasPorLinha).toHaveBeenCalledWith(101);
     expect(buscarPosicaoDosOnibus).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId("map-props")).toHaveTextContent('"codigoLinha":101');
