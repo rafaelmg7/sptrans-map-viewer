@@ -20,6 +20,7 @@ function App() {
   const [historicoBuscas, setHistoricoBuscas] = useState([]);
   const [autoAtualizar, setAutoAtualizar] = useState(true);
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState(null);
+  const [buscaRealizada, setBuscaRealizada] = useState(false);
   const intervalRef = useRef(null);
 
   // Autentica ao iniciar
@@ -50,16 +51,19 @@ function App() {
       setParadas([]);
       setOnibus([]);
       setUltimaAtualizacao(null);
+      setBuscaRealizada(false);
       limparIntervalo();
       return;
     }
 
     setBuscandoLinhas(true);
     setLinhaSelecionada(null);
+    setBuscaRealizada(false);
 
     try {
       const data = await buscarLinhas(termoNormalizado);
       setLinhas(data);
+      setBuscaRealizada(true);
       registrarBusca(termoNormalizado);
     } finally {
       setBuscandoLinhas(false);
@@ -204,6 +208,12 @@ function App() {
                 ))}
               </div>
             </div>
+          )}
+
+          {buscaRealizada && linhas.length === 0 && (
+            <p className="empty-message" role="alert">
+              Nenhuma linha encontrada para esse termo.
+            </p>
           )}
 
           <div className="action-row">
