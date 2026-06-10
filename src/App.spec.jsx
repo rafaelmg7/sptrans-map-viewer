@@ -259,6 +259,33 @@ describe("App", () => {
     expect(screen.getByLabelText("Numero ou nome da linha")).toHaveValue("8000");
   });
 
+  it("avisa quando a busca nao encontra linhas", async () => {
+    buscarLinhas
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ cl: 101, lt: "8000-10", tp: "A", ts: "B" }]);
+
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText("Numero ou nome da linha"), {
+      target: { value: "inexistente" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Buscar" }));
+    await flushAsync();
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Nenhuma linha encontrada para esse termo."
+    );
+
+    fireEvent.change(screen.getByLabelText("Numero ou nome da linha"), {
+      target: { value: "8000" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Buscar" }));
+    await flushAsync();
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /8000-10/ })).toBeInTheDocument();
+  });
+
   it("atualiza onibus manualmente e limpa o painel", async () => {
     const linhas = [{ cl: 101, lt: "8000-10", tp: "Terminal A", ts: "Terminal B" }];
     const paradas = [{ cp: 10, np: "Parada Paulista", py: -23.5, px: -46.6 }];
