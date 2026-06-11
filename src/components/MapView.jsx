@@ -24,6 +24,12 @@ const iconeParada = new L.Icon({
 export default function MapView({ paradas = [], onibus = [], codigoLinha }) {
   const [previsoes, setPrevisoes] = useState({});
   const center = [-23.55052, -46.633308]; // centro de SP
+  const paradasComCoordenadas = paradas.filter(
+    (parada) => Number.isFinite(parada?.py) && Number.isFinite(parada?.px)
+  );
+  const onibusComCoordenadas = onibus.filter(
+    (veiculo) => Number.isFinite(veiculo?.py) && Number.isFinite(veiculo?.px)
+  );
 
   async function handleClickParada(parada) {
     if (!codigoLinha) {
@@ -63,7 +69,7 @@ export default function MapView({ paradas = [], onibus = [], codigoLinha }) {
       />
 
       {/* Paradas (azul) */}
-      {paradas.map((p) => (
+      {paradasComCoordenadas.map((p) => (
         <Marker
           key={p.cp}
           position={[p.py, p.px]}
@@ -98,7 +104,7 @@ export default function MapView({ paradas = [], onibus = [], codigoLinha }) {
       ))}
 
       {/* Ônibus (vermelho) */}
-      {onibus.map((v) => (
+      {onibusComCoordenadas.map((v) => (
         <Marker key={v.p} position={[v.py, v.px]} icon={iconeOnibus}>
           <Popup>
             🚌 Ônibus {v.p}
