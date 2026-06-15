@@ -66,6 +66,28 @@ describe("MapView", () => {
     expect(screen.getAllByTestId("marker")).toHaveLength(2);
   });
 
+  it("ignora paradas e onibus sem coordenadas validas", () => {
+    render(
+      <MapView
+        codigoLinha={101}
+        paradas={[
+          { cp: 10, np: "Parada Valida", py: -23.5, px: -46.6 },
+          { cp: 11, np: "Parada Sem Latitude", py: null, px: -46.61 },
+          { cp: 12, np: "Parada Sem Longitude", py: -23.52, px: undefined },
+        ]}
+        onibus={[
+          { p: "BUS-1", py: -23.51, px: -46.61, ta: "2026-06-22T12:00:00Z" },
+          { p: "BUS-2", py: "23", px: -46.62, ta: "2026-06-22T12:01:00Z" },
+        ]}
+      />
+    );
+
+    expect(screen.getByText("Parada Valida")).toBeInTheDocument();
+    expect(screen.queryByText("Parada Sem Latitude")).not.toBeInTheDocument();
+    expect(screen.queryByText("Parada Sem Longitude")).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("marker")).toHaveLength(2);
+  });
+
   it("carrega e exibe previsoes normalizadas pelo backend ao clicar na parada", async () => {
     const user = userEvent.setup();
     buscarPrevisao.mockResolvedValueOnce({
