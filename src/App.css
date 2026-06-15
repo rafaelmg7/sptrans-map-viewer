@@ -302,6 +302,7 @@ button:disabled {
 }
 
 .map-panel {
+  position: relative;
   height: min(66vh, 680px);
   min-height: 460px;
   overflow: hidden;
@@ -309,6 +310,34 @@ button:disabled {
   border-radius: 8px;
   background: #dbeafe;
   box-shadow: 0 22px 70px rgba(15, 23, 42, 0.15);
+}
+
+.map-toolbar {
+  position: absolute;
+  z-index: 500;
+  top: 14px;
+  left: 14px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  max-width: calc(100% - 28px);
+  padding: 10px 12px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+  color: #0f172a;
+}
+
+.map-toolbar span {
+  color: #0369a1;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.map-toolbar strong {
+  font-size: 0.88rem;
 }
 
 .map-panel .leaflet-container {
@@ -353,5 +382,12 @@ button:disabled {
   .map-panel {
     min-height: 420px;
     height: 58vh;
+  }
+
+  .map-toolbar {
+    right: 14px;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
   }
 }

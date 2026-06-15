@@ -294,6 +294,12 @@ function App() {
         </section>
 
         <section className="map-panel" aria-label="Mapa de paradas e onibus">
+          <div className="map-toolbar">
+            <span>Mapa operacional</span>
+            <strong>
+              {paradas.length} paradas · {onibus.length} veiculos
+            </strong>
+          </div>
           <MapView
             paradas={paradas}
             onibus={onibus}
