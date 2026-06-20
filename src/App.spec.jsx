@@ -121,6 +121,8 @@ describe("App", () => {
     expect(screen.getByTestId("map-props")).toHaveTextContent("BUS-1");
     expect(screen.getByLabelText("Resumo do mapa")).toHaveTextContent("1paradas");
     expect(screen.getByLabelText("Resumo do mapa")).toHaveTextContent("1onibus");
+    expect(screen.getByText("Mapa operacional")).toBeInTheDocument();
+    expect(screen.getByText("1 paradas · 1 veiculos")).toBeInTheDocument();
 
     await act(async () => {
       vi.advanceTimersByTime(AUTO_UPDATE_INTERVAL_MS);
