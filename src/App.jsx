@@ -9,6 +9,22 @@ import {
 } from "./services/sptransAPI";
 import { AUTO_UPDATE_INTERVAL_MS } from "./config";
 
+function temValor(value) {
+  return value !== undefined && value !== null && value !== "";
+}
+
+function formatarCodigoLinha(linha) {
+  const codigoBase = temValor(linha?.lt)
+    ? String(linha.lt)
+    : String(linha?.c ?? linha?.cl ?? "Linha");
+
+  if (codigoBase.includes("-") || !temValor(linha?.tl)) {
+    return codigoBase;
+  }
+
+  return `${codigoBase}-${linha.tl}`;
+}
+
 function App() {
   const [termo, setTermo] = useState("");
   const [linhas, setLinhas] = useState([]);
