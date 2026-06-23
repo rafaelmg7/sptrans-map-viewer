@@ -98,6 +98,7 @@ function App() {
   const [buscaRealizada, setBuscaRealizada] = useState(false);
   const [mensagemSelecao, setMensagemSelecao] = useState("");
   const intervalRef = useRef(null);
+  const linhasAtivasRef = useRef([]);
 
   // Autentica ao iniciar
   useEffect(() => {
@@ -123,6 +124,7 @@ function App() {
     if (!termoNormalizado) {
       setLinhas([]);
       setCodigosSelecionados([]);
+      linhasAtivasRef.current = [];
       setLinhasAtivas([]);
       setMensagemSelecao("");
       setBuscaRealizada(false);
@@ -165,41 +167,13 @@ function App() {
     );
   };
 
-  const atualizarOnibusDaLinha = async (linhaAtiva) => {
-    try {
-      const veiculos = await buscarPosicaoDosOnibus(linhaAtiva.linha.cl);
+  const atualizarDadosDaLinha = async (linhaAtiva) => {
+    atualizarLinhaAtiva(linhaAtiva.id, (linhaAtual) => ({
+      ...linhaAtual,
+      carregando: true,
+      erro: null,
+    }));
 
-      atualizarLinhaAtiva(linhaAtiva.id, (linhaAtual) => ({
-        ...linhaAtual,
-        onibus: veiculos,
-        carregando: false,
-        erro: null,
-        ultimaAtualizacao: new Date(),
-      }));
-      console.log(
-        `Atualizado linha ${linhaAtiva.id}: ${veiculos.length} veiculos`,
-      );
-    } catch {
-      atualizarLinhaAtiva(linhaAtiva.id, (linhaAtual) => ({
-        ...linhaAtual,
-        carregando: false,
-        erro: "Erro ao atualizar veiculos",
-      }));
-    }
-  };
-
-  const configurarAutoAtualizacao = (linhaAtiva) => {
-    limparIntervalo();
-
-    if (autoAtualizar && linhaAtiva) {
-      intervalRef.current = setInterval(
-        () => atualizarOnibusDaLinha(linhaAtiva),
-        AUTO_UPDATE_INTERVAL_MS,
-      );
-    }
-  };
-
-  const carregarLinhaAtiva = async (linhaAtiva) => {
     try {
       const [paradas, onibus] = await Promise.all([
         buscarParadasPorLinha(linhaAtiva.linha.cl),
@@ -214,13 +188,30 @@ function App() {
         erro: null,
         ultimaAtualizacao: new Date(),
       }));
-      console.log(`Carregada linha ${linhaAtiva.id}`);
+      console.log(`Atualizada linha ${linhaAtiva.id}`);
     } catch {
       atualizarLinhaAtiva(linhaAtiva.id, (linhaAtual) => ({
         ...linhaAtual,
         carregando: false,
-        erro: "Erro ao carregar linha",
+        erro: "Erro ao atualizar linha",
       }));
+    }
+  };
+
+  const atualizarTodasLinhasAtivas = async (
+    linhasParaAtualizar = linhasAtivasRef.current,
+  ) => {
+    await Promise.all(linhasParaAtualizar.map(atualizarDadosDaLinha));
+  };
+
+  const configurarAutoAtualizacao = () => {
+    limparIntervalo();
+
+    if (autoAtualizar && linhasAtivasRef.current.length > 0) {
+      intervalRef.current = setInterval(
+        () => atualizarTodasLinhasAtivas(),
+        AUTO_UPDATE_INTERVAL_MS,
+      );
     }
   };
 
@@ -235,11 +226,9 @@ function App() {
 
     limparIntervalo();
 
-    const ultimaLinhaAtiva = linhasAtivas[linhasAtivas.length - 1];
-
-    if (ligado && ultimaLinhaAtiva) {
+    if (ligado && linhasAtivasRef.current.length > 0) {
       intervalRef.current = setInterval(
-        () => atualizarOnibusDaLinha(ultimaLinhaAtiva),
+        () => atualizarTodasLinhasAtivas(),
         AUTO_UPDATE_INTERVAL_MS,
       );
     }
@@ -278,11 +267,13 @@ function App() {
       );
     });
 
-    setLinhasAtivas((linhasAtuais) => [...linhasAtuais, ...novasLinhasAtivas]);
+    const proximasLinhasAtivas = [...linhasAtivas, ...novasLinhasAtivas];
+    linhasAtivasRef.current = proximasLinhasAtivas;
+    setLinhasAtivas(proximasLinhasAtivas);
     setCodigosSelecionados([]);
 
-    await Promise.all(novasLinhasAtivas.map(carregarLinhaAtiva));
-    configurarAutoAtualizacao(novasLinhasAtivas[novasLinhasAtivas.length - 1]);
+    await atualizarTodasLinhasAtivas(novasLinhasAtivas);
+    configurarAutoAtualizacao();
   };
 
   const limparPainel = () => {
@@ -290,10 +281,15 @@ function App() {
     setTermo("");
     setLinhas([]);
     setCodigosSelecionados([]);
+    linhasAtivasRef.current = [];
     setLinhasAtivas([]);
     setMensagemSelecao("");
     setBuscaRealizada(false);
   };
+
+  useEffect(() => {
+    linhasAtivasRef.current = linhasAtivas;
+  }, [linhasAtivas]);
 
   useEffect(() => {
     return () => {
@@ -452,7 +448,7 @@ function App() {
                 className="ghost-button"
                 type="button"
                 disabled={!ultimaLinhaAtiva || carregandoMapa}
-                onClick={() => atualizarOnibusDaLinha(ultimaLinhaAtiva)}
+                onClick={() => atualizarTodasLinhasAtivas()}
               >
                 Atualizar agora
               </button>
