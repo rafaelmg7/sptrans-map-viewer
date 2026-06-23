@@ -78,10 +78,48 @@ function formatarLinhaEncontrada(linha) {
     .join(" | ");
 }
 
+const MAX_ACTIVE_LINES = 5;
+const MENSAGEM_LIMITE_LINHAS = `Limite de ${MAX_ACTIVE_LINES} linhas no mapa.`;
+
+function obterCodigosUnicos(codigos = []) {
+  const codigosUnicos = [];
+
+  codigos.forEach((codigo) => {
+    if (!temValor(codigo)) {
+      return;
+    }
+
+    const codigoNormalizado = String(codigo);
+
+    if (!codigosUnicos.includes(codigoNormalizado)) {
+      codigosUnicos.push(codigoNormalizado);
+    }
+  });
+
+  return codigosUnicos;
+}
+
+function calcularCodigosParaAdicionar({
+  codigosSelecionados,
+  codigosAtivos,
+  limite = MAX_ACTIVE_LINES,
+}) {
+  const selecionados = obterCodigosUnicos(codigosSelecionados);
+  const ativos = new Set(obterCodigosUnicos(codigosAtivos));
+  const candidatos = selecionados.filter((codigo) => !ativos.has(codigo));
+  const vagasDisponiveis = Math.max(limite - ativos.size, 0);
+
+  return {
+    codigosParaAdicionar: candidatos.slice(0, vagasDisponiveis),
+    limiteAtingido: candidatos.length > vagasDisponiveis,
+  };
+}
+
 function App() {
   const [termo, setTermo] = useState("");
   const [linhas, setLinhas] = useState([]);
-  const [linhaSelecionada, setLinhaSelecionada] = useState(null);
+  const [codigosSelecionados, setCodigosSelecionados] = useState([]);
+  const [linhasAtivas, setLinhasAtivas] = useState([]);
   const [paradas, setParadas] = useState([]);
   const [onibus, setOnibus] = useState([]);
   const [buscandoLinhas, setBuscandoLinhas] = useState(false);
@@ -90,6 +128,7 @@ function App() {
   const [autoAtualizar, setAutoAtualizar] = useState(true);
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState(null);
   const [buscaRealizada, setBuscaRealizada] = useState(false);
+  const [mensagemSelecao, setMensagemSelecao] = useState("");
   const intervalRef = useRef(null);
 
   // Autentica ao iniciar
@@ -115,17 +154,20 @@ function App() {
 
     if (!termoNormalizado) {
       setLinhas([]);
-      setLinhaSelecionada(null);
+      setCodigosSelecionados([]);
+      setLinhasAtivas([]);
       setParadas([]);
       setOnibus([]);
       setUltimaAtualizacao(null);
+      setMensagemSelecao("");
       setBuscaRealizada(false);
       limparIntervalo();
       return;
     }
 
     setBuscandoLinhas(true);
-    setLinhaSelecionada(null);
+    setCodigosSelecionados([]);
+    setMensagemSelecao("");
     setBuscaRealizada(false);
 
     try {
@@ -141,6 +183,13 @@ function App() {
   const handleBuscarLinhas = async (event) => {
     event?.preventDefault();
     await executarBusca(termo);
+  };
+
+  const handleSelecionarCodigos = (event) => {
+    setCodigosSelecionados(
+      Array.from(event.target.selectedOptions, (option) => option.value),
+    );
+    setMensagemSelecao("");
   };
 
   const atualizarOnibusDaLinha = async (linha) => {
@@ -186,11 +235,45 @@ function App() {
 
     limparIntervalo();
 
-    if (ligado && linhaSelecionada) {
+    const ultimaLinhaAtiva = linhasAtivas[linhasAtivas.length - 1];
+
+    if (ligado && ultimaLinhaAtiva) {
       intervalRef.current = setInterval(
-        () => atualizarOnibusDaLinha(linhaSelecionada),
+        () => atualizarOnibusDaLinha(ultimaLinhaAtiva),
         AUTO_UPDATE_INTERVAL_MS,
       );
+    }
+  };
+
+  const handleAdicionarLinhasAoMapa = async () => {
+    const codigosAtivos = linhasAtivas.map((linha) => linha.cl);
+    const { codigosParaAdicionar, limiteAtingido } =
+      calcularCodigosParaAdicionar({
+        codigosSelecionados,
+        codigosAtivos,
+      });
+
+    setMensagemSelecao(limiteAtingido ? MENSAGEM_LIMITE_LINHAS : "");
+
+    if (codigosParaAdicionar.length === 0) {
+      return;
+    }
+
+    const linhasPorCodigo = new Map(
+      linhas.map((linha) => [String(linha.cl), linha]),
+    );
+    const linhasParaAdicionar = codigosParaAdicionar
+      .map((codigo) => linhasPorCodigo.get(codigo))
+      .filter(Boolean);
+
+    setLinhasAtivas((linhasAtuais) => [
+      ...linhasAtuais,
+      ...linhasParaAdicionar,
+    ]);
+    setCodigosSelecionados([]);
+
+    for (const linha of linhasParaAdicionar) {
+      await buscarParadasELocalizacao(linha);
     }
   };
 
@@ -198,10 +281,13 @@ function App() {
     limparIntervalo();
     setTermo("");
     setLinhas([]);
-    setLinhaSelecionada(null);
+    setCodigosSelecionados([]);
+    setLinhasAtivas([]);
     setParadas([]);
     setOnibus([]);
     setUltimaAtualizacao(null);
+    setMensagemSelecao("");
+    setBuscaRealizada(false);
   };
 
   useEffect(() => {
@@ -211,10 +297,18 @@ function App() {
   }, []);
 
   const podeLimpar =
-    termo || linhas.length > 0 || paradas.length > 0 || onibus.length > 0;
-  const descricaoLinhaSelecionada = linhaSelecionada
-    ? formatarLinhaEncontrada(linhaSelecionada)
+    termo ||
+    linhas.length > 0 ||
+    codigosSelecionados.length > 0 ||
+    linhasAtivas.length > 0 ||
+    paradas.length > 0 ||
+    onibus.length > 0 ||
+    mensagemSelecao;
+  const ultimaLinhaAtiva = linhasAtivas[linhasAtivas.length - 1] ?? null;
+  const descricaoUltimaLinhaAtiva = ultimaLinhaAtiva
+    ? formatarLinhaEncontrada(ultimaLinhaAtiva)
     : null;
+  const tamanhoSeletor = linhas.length > 0 ? Math.min(linhas.length, 6) : 1;
 
   return (
     <div className="app-shell">
@@ -292,36 +386,41 @@ function App() {
             <label className="field select-field">
               <span>Linha e sentido</span>
               <select
-                value={linhaSelecionada?.cl ?? ""}
+                multiple
+                size={tamanhoSeletor}
+                value={codigosSelecionados}
                 disabled={linhas.length === 0}
-                onChange={(e) =>
-                  setLinhaSelecionada(
-                    linhas.find((l) => String(l.cl) === e.target.value) ?? null,
-                  )
-                }
+                onChange={handleSelecionarCodigos}
               >
-                <option value="">
-                  {linhas.length > 0
-                    ? "Selecione uma linha..."
-                    : "Busque para selecionar"}
-                </option>
-                {linhas.map((l) => (
-                  <option key={l.cl} value={l.cl}>
-                    {formatarLinhaEncontrada(l)}
+                {linhas.length === 0 ? (
+                  <option value="" disabled>
+                    Busque para selecionar
                   </option>
-                ))}
+                ) : (
+                  linhas.map((l) => (
+                    <option key={l.cl} value={l.cl}>
+                      {formatarLinhaEncontrada(l)}
+                    </option>
+                  ))
+                )}
               </select>
             </label>
 
             <button
               className="secondary-button"
               type="button"
-              disabled={!linhaSelecionada || carregandoMapa}
-              onClick={() => buscarParadasELocalizacao(linhaSelecionada)}
+              disabled={codigosSelecionados.length === 0 || carregandoMapa}
+              onClick={handleAdicionarLinhasAoMapa}
             >
-              {carregandoMapa ? "Carregando..." : "Mostrar no mapa"}
+              {carregandoMapa ? "Carregando..." : "Adicionar ao mapa"}
             </button>
           </div>
+
+          {mensagemSelecao && (
+            <p className="limit-message" role="status">
+              {mensagemSelecao}
+            </p>
+          )}
 
           <div className="tool-row">
             <label className="toggle-field">
@@ -337,8 +436,8 @@ function App() {
               <button
                 className="ghost-button"
                 type="button"
-                disabled={!linhaSelecionada || carregandoMapa}
-                onClick={() => atualizarOnibusDaLinha(linhaSelecionada)}
+                disabled={!ultimaLinhaAtiva || carregandoMapa}
+                onClick={() => atualizarOnibusDaLinha(ultimaLinhaAtiva)}
               >
                 Atualizar agora
               </button>
@@ -353,10 +452,14 @@ function App() {
             </div>
           </div>
 
-          {descricaoLinhaSelecionada && (
+          {descricaoUltimaLinhaAtiva && (
             <div className="selected-line" aria-label="Linha ativa">
-              <span>Linha ativa</span>
-              <strong>{descricaoLinhaSelecionada}</strong>
+              <span>
+                {linhasAtivas.length === 1
+                  ? "Linha ativa"
+                  : `${linhasAtivas.length} linhas no mapa`}
+              </span>
+              <strong>{descricaoUltimaLinhaAtiva}</strong>
             </div>
           )}
 
@@ -377,7 +480,7 @@ function App() {
           <MapView
             paradas={paradas}
             onibus={onibus}
-            codigoLinha={linhaSelecionada?.cl ?? null}
+            codigoLinha={ultimaLinhaAtiva?.cl ?? null}
           />
         </section>
       </main>
