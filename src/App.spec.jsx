@@ -170,7 +170,7 @@ describe("App", () => {
 
       expect(buscarParadasPorLinha).toHaveBeenCalledWith(34041);
       expect(buscarPosicaoDosOnibus).toHaveBeenCalledWith(34041);
-      expect(screen.getByLabelText("Linha ativa")).toHaveTextContent(
+      expect(screen.getByLabelText("Linhas no mapa")).toHaveTextContent(
         "8000-10 | volta | TERMINAL LAPA -> PCA.RAMOS DE AZEVEDO | cl 34041",
       );
     });
@@ -350,6 +350,7 @@ describe("App", () => {
     });
 
     it("deve limpar o painel e o mapa quando a busca for apagada", async () => {
+      const clearIntervalSpy = vi.spyOn(globalThis, "clearInterval");
       buscarLinhas.mockResolvedValueOnce([
         { cl: 101, lt: "8000-10", tp: "A", ts: "B" },
       ]);
@@ -367,6 +368,98 @@ describe("App", () => {
       expect(screen.getByTestId("map-props")).toHaveTextContent(
         '"linhasAtivas":[]',
       );
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Aguardando carregamento da linha.",
+      );
+      expect(clearIntervalSpy).toHaveBeenCalled();
+    });
+
+    it("deve listar linhas no mapa com cor, descricao, status e acao de remover", async () => {
+      buscarLinhas.mockResolvedValueOnce([
+        { cl: 101, lt: "8000-10", tp: "A", ts: "B" },
+        { cl: 202, lt: "9000-10", tp: "C", ts: "D" },
+      ]);
+      buscarParadasPorLinha.mockResolvedValue([]);
+      buscarPosicaoDosOnibus
+        .mockResolvedValueOnce([{ p: "BUS-1" }])
+        .mockRejectedValueOnce(new Error("falha"));
+
+      render(<App />);
+      await buscarPorLinha("8000");
+      await selecionarLinhasEAdicionarAoMapa(101, 202);
+
+      const painelLinhas = screen.getByLabelText("Linhas no mapa");
+      expect(painelLinhas).toHaveTextContent("8000-10 | A <-> B | cl 101");
+      expect(painelLinhas).toHaveTextContent("9000-10 | C <-> D | cl 202");
+      expect(painelLinhas).toHaveTextContent("Atualizada");
+      expect(painelLinhas).toHaveTextContent("Erro ao atualizar linha");
+      expect(screen.getByLabelText("Cor da linha 8000-10 | A <-> B | cl 101"))
+        .toBeInTheDocument();
+      expect(
+        screen.getByRole("button", {
+          name: "Remover linha 8000-10 | A <-> B | cl 101",
+        }),
+      ).toBeInTheDocument();
+    });
+
+    it("deve remover uma linha do mapa e liberar sua cor", async () => {
+      buscarLinhas.mockResolvedValueOnce([
+        { cl: 101, lt: "8000-10", tp: "A", ts: "B" },
+        { cl: 202, lt: "9000-10", tp: "C", ts: "D" },
+        { cl: 303, lt: "7000-10", tp: "E", ts: "F" },
+      ]);
+      buscarParadasPorLinha.mockResolvedValue([]);
+      buscarPosicaoDosOnibus.mockResolvedValue([]);
+
+      render(<App />);
+      await buscarPorLinha("8000");
+      await selecionarLinhasEAdicionarAoMapa(101, 202);
+
+      const corLiberada = lerLinhasAtivasDoMapa()[0].cor;
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "Remover linha 8000-10 | A <-> B | cl 101",
+        }),
+      );
+
+      expect(lerLinhasAtivasDoMapa()).toEqual([
+        expect.objectContaining({ id: "202" }),
+      ]);
+      expect(screen.getByLabelText("Linhas no mapa")).not.toHaveTextContent(
+        "8000-10 | A <-> B | cl 101",
+      );
+
+      await selecionarLinhasEAdicionarAoMapa(303);
+
+      expect(lerLinhasAtivasDoMapa()).toEqual([
+        expect.objectContaining({ id: "202" }),
+        expect.objectContaining({ id: "303", cor: corLiberada }),
+      ]);
+    });
+
+    it("deve manter linhas ativas no mapa ao fazer nova busca", async () => {
+      buscarLinhas
+        .mockResolvedValueOnce([
+          { cl: 101, lt: "8000-10", tp: "A", ts: "B" },
+          { cl: 202, lt: "9000-10", tp: "C", ts: "D" },
+        ])
+        .mockResolvedValueOnce([{ cl: 303, lt: "7000-10", tp: "E", ts: "F" }]);
+      buscarParadasPorLinha.mockResolvedValue([]);
+      buscarPosicaoDosOnibus.mockResolvedValue([]);
+
+      render(<App />);
+      await buscarPorLinha("8000");
+      await selecionarLinhasEAdicionarAoMapa(101);
+      selecionarCodigos(202);
+
+      await buscarPorLinha("7000");
+
+      expect(lerLinhasAtivasDoMapa()).toEqual([
+        expect.objectContaining({ id: "101" }),
+      ]);
+      expect(screen.queryByRole("option", { name: /9000-10/ })).not.toBeInTheDocument();
+      expect(screen.getByRole("option", { name: /7000-10/ })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Adicionar ao mapa" })).toBeDisabled();
     });
   });
 
