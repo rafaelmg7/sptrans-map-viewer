@@ -371,57 +371,110 @@ describe("App", () => {
   });
 
   describe("Atualização em Tempo Real (Timers)", () => {
-    it("deve atualizar a posição dos ônibus automaticamente conforme o intervalo definido", async () => {
+    it("deve atualizar todas as linhas ativas automaticamente com um unico intervalo", async () => {
+      const setIntervalSpy = vi.spyOn(globalThis, "setInterval");
       buscarLinhas.mockResolvedValueOnce([
         { cl: 101, lt: "8000-10", tp: "A", ts: "B" },
+        { cl: 202, lt: "9000-10", tp: "C", ts: "D" },
       ]);
-      buscarParadasPorLinha.mockResolvedValueOnce([]);
+      buscarParadasPorLinha.mockResolvedValue([]);
       buscarPosicaoDosOnibus.mockResolvedValue([]);
 
       render(<App />);
       await buscarPorLinha("8000");
-      await selecionarLinhasEAdicionarAoMapa(101);
-      expect(buscarPosicaoDosOnibus).toHaveBeenCalledTimes(1);
-
-      await avancarTempoParaProximaAtualizacao();
+      await selecionarLinhasEAdicionarAoMapa(101, 202);
+      expect(setIntervalSpy).toHaveBeenCalledTimes(1);
       expect(buscarPosicaoDosOnibus).toHaveBeenCalledTimes(2);
 
       await avancarTempoParaProximaAtualizacao();
-      expect(buscarPosicaoDosOnibus).toHaveBeenCalledTimes(3);
+      expect(buscarParadasPorLinha).toHaveBeenCalledTimes(4);
+      expect(buscarPosicaoDosOnibus).toHaveBeenCalledTimes(4);
+      expect(buscarPosicaoDosOnibus).toHaveBeenNthCalledWith(3, 101);
+      expect(buscarPosicaoDosOnibus).toHaveBeenNthCalledWith(4, 202);
+
+      await avancarTempoParaProximaAtualizacao();
+      expect(buscarParadasPorLinha).toHaveBeenCalledTimes(6);
+      expect(buscarPosicaoDosOnibus).toHaveBeenCalledTimes(6);
     });
 
     it("não deve atualizar a posição se a autoatualização for desligada", async () => {
+      const clearIntervalSpy = vi.spyOn(globalThis, "clearInterval");
       buscarLinhas.mockResolvedValueOnce([
         { cl: 101, lt: "8000-10", tp: "A", ts: "B" },
+        { cl: 202, lt: "9000-10", tp: "C", ts: "D" },
       ]);
-      buscarParadasPorLinha.mockResolvedValueOnce([]);
+      buscarParadasPorLinha.mockResolvedValue([]);
       buscarPosicaoDosOnibus.mockResolvedValue([]);
 
       render(<App />);
       await buscarPorLinha("8000");
-      await selecionarLinhasEAdicionarAoMapa(101);
+      await selecionarLinhasEAdicionarAoMapa(101, 202);
 
       fireEvent.click(screen.getByLabelText("Autoatualizar a cada 5s"));
       await avancarTempoParaProximaAtualizacao();
 
-      expect(buscarPosicaoDosOnibus).toHaveBeenCalledTimes(1);
+      expect(clearIntervalSpy).toHaveBeenCalled();
+      expect(buscarPosicaoDosOnibus).toHaveBeenCalledTimes(2);
     });
 
-    it("deve permitir atualizar os dados manualmente clicando no botão", async () => {
+    it("deve permitir atualizar todas as linhas ativas manualmente", async () => {
       buscarLinhas.mockResolvedValueOnce([
         { cl: 101, lt: "8000-10", tp: "A", ts: "B" },
+        { cl: 202, lt: "9000-10", tp: "C", ts: "D" },
       ]);
-      buscarParadasPorLinha.mockResolvedValueOnce([]);
+      buscarParadasPorLinha.mockResolvedValue([]);
       buscarPosicaoDosOnibus.mockResolvedValue([]);
 
       render(<App />);
       await buscarPorLinha("8000");
-      await selecionarLinhasEAdicionarAoMapa(101);
+      await selecionarLinhasEAdicionarAoMapa(101, 202);
 
       fireEvent.click(screen.getByRole("button", { name: "Atualizar agora" }));
       await aguardarPromises();
 
-      expect(buscarPosicaoDosOnibus).toHaveBeenCalledTimes(2);
+      expect(buscarParadasPorLinha).toHaveBeenCalledTimes(4);
+      expect(buscarPosicaoDosOnibus).toHaveBeenCalledTimes(4);
+      expect(buscarPosicaoDosOnibus).toHaveBeenNthCalledWith(3, 101);
+      expect(buscarPosicaoDosOnibus).toHaveBeenNthCalledWith(4, 202);
+    });
+
+    it("deve preservar dados anteriores quando uma linha falhar na atualizacao", async () => {
+      buscarLinhas.mockResolvedValueOnce([
+        { cl: 101, lt: "8000-10", tp: "A", ts: "B" },
+        { cl: 202, lt: "9000-10", tp: "C", ts: "D" },
+      ]);
+      buscarParadasPorLinha
+        .mockResolvedValueOnce([{ cp: 10, np: "Parada A" }])
+        .mockResolvedValueOnce([{ cp: 20, np: "Parada B" }])
+        .mockResolvedValueOnce([{ cp: 11, np: "Parada A atualizada" }])
+        .mockResolvedValueOnce([{ cp: 21, np: "Parada B ignorada" }]);
+      buscarPosicaoDosOnibus
+        .mockResolvedValueOnce([{ p: "BUS-1" }])
+        .mockResolvedValueOnce([{ p: "BUS-2" }])
+        .mockResolvedValueOnce([{ p: "BUS-3" }])
+        .mockRejectedValueOnce(new Error("falha"));
+
+      render(<App />);
+      await buscarPorLinha("8000");
+      await selecionarLinhasEAdicionarAoMapa(101, 202);
+
+      fireEvent.click(screen.getByRole("button", { name: "Atualizar agora" }));
+      await aguardarPromises();
+
+      expect(lerLinhasAtivasDoMapa()).toEqual([
+        expect.objectContaining({
+          id: "101",
+          erro: null,
+          paradas: [{ cp: 11, np: "Parada A atualizada" }],
+          onibus: [{ p: "BUS-3" }],
+        }),
+        expect.objectContaining({
+          id: "202",
+          erro: "Erro ao atualizar linha",
+          paradas: [{ cp: 20, np: "Parada B" }],
+          onibus: [{ p: "BUS-2" }],
+        }),
+      ]);
     });
   });
 });
