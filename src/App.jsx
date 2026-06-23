@@ -25,6 +25,28 @@ function formatarCodigoLinha(linha) {
   return `${codigoBase}-${linha.tl}`;
 }
 
+function formatarSentidoLinha(linha) {
+  if (linha?.lc === true) {
+    return "circular";
+  }
+
+  if (!temValor(linha?.sl)) {
+    return "";
+  }
+
+  const sentido = Number(linha.sl);
+
+  if (sentido === 1) {
+    return "ida";
+  }
+
+  if (sentido === 2) {
+    return "volta";
+  }
+
+  return `sentido ${linha.sl}`;
+}
+
 function App() {
   const [termo, setTermo] = useState("");
   const [linhas, setLinhas] = useState([]);
