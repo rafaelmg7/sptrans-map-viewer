@@ -19,11 +19,11 @@ vi.mock("./services/sptransAPI", () => ({
 vi.mock("./components/MapView", async () => {
   const React = await import("react");
   return {
-    default: ({ paradas, onibus, codigoLinha }) =>
+    default: ({ linhasAtivas }) =>
       React.createElement(
         "div",
         { "data-testid": "map-props" },
-        JSON.stringify({ paradas, onibus, codigoLinha }),
+        JSON.stringify({ linhasAtivas }),
       ),
   };
 });
@@ -65,6 +65,10 @@ async function avancarTempoParaProximaAtualizacao() {
     vi.advanceTimersByTime(AUTO_UPDATE_INTERVAL_MS);
   });
   await aguardarPromises();
+}
+
+function lerLinhasAtivasDoMapa() {
+  return JSON.parse(screen.getByTestId("map-props").textContent).linhasAtivas;
 }
 
 describe("App", () => {
@@ -267,31 +271,82 @@ describe("App", () => {
   });
 
   describe("Integração com Mapa Operacional", () => {
-    it("deve carregar paradas e veículos no mapa ao selecionar uma linha", async () => {
+    it("deve carregar paradas e veiculos para cada linha ativa e enviar linhasAtivas ao mapa", async () => {
       buscarLinhas.mockResolvedValueOnce([
         { cl: 101, lt: "8000-10", tp: "A", ts: "B" },
+        { cl: 202, lt: "9000-10", tp: "C", ts: "D" },
       ]);
       buscarParadasPorLinha.mockResolvedValueOnce([
         { cp: 10, np: "Parada Paulista", py: -23.5, px: -46.6 },
       ]);
+      buscarParadasPorLinha.mockResolvedValueOnce([
+        { cp: 20, np: "Parada Centro", py: -23.52, px: -46.62 },
+      ]);
       buscarPosicaoDosOnibus.mockResolvedValueOnce([
         { p: "BUS-1", py: -23.51, px: -46.61 },
+      ]);
+      buscarPosicaoDosOnibus.mockResolvedValueOnce([
+        { p: "BUS-2", py: -23.53, px: -46.63 },
       ]);
 
       render(<App />);
       await buscarPorLinha("8000");
-      await selecionarLinhasEAdicionarAoMapa(101);
+      await selecionarLinhasEAdicionarAoMapa(101, 202);
 
       expect(buscarParadasPorLinha).toHaveBeenCalledWith(101);
-      expect(buscarPosicaoDosOnibus).toHaveBeenCalledTimes(1);
+      expect(buscarParadasPorLinha).toHaveBeenCalledWith(202);
+      expect(buscarPosicaoDosOnibus).toHaveBeenCalledWith(101);
+      expect(buscarPosicaoDosOnibus).toHaveBeenCalledWith(202);
 
-      expect(screen.getByTestId("map-props")).toHaveTextContent(
-        '"codigoLinha":101',
-      );
-      expect(screen.getByTestId("map-props")).toHaveTextContent(
-        "Parada Paulista",
-      );
-      expect(screen.getByTestId("map-props")).toHaveTextContent("BUS-1");
+      expect(lerLinhasAtivasDoMapa()).toEqual([
+        expect.objectContaining({
+          id: "101",
+          cor: expect.any(String),
+          descricao: "8000-10 | A <-> B | cl 101",
+          paradas: [{ cp: 10, np: "Parada Paulista", py: -23.5, px: -46.6 }],
+          onibus: [{ p: "BUS-1", py: -23.51, px: -46.61 }],
+        }),
+        expect.objectContaining({
+          id: "202",
+          cor: expect.any(String),
+          descricao: "9000-10 | C <-> D | cl 202",
+          paradas: [{ cp: 20, np: "Parada Centro", py: -23.52, px: -46.62 }],
+          onibus: [{ p: "BUS-2", py: -23.53, px: -46.63 }],
+        }),
+      ]);
+    });
+
+    it("deve exibir metricas agregadas com linhas ativas, paradas agrupadas e veiculos totais", async () => {
+      buscarLinhas.mockResolvedValueOnce([
+        { cl: 101, lt: "8000-10", tp: "A", ts: "B" },
+        { cl: 202, lt: "9000-10", tp: "C", ts: "D" },
+      ]);
+      buscarParadasPorLinha.mockResolvedValueOnce([
+        { cp: 10, np: "Parada Paulista", py: -23.5, px: -46.6 },
+        { cp: 11, np: "Parada Augusta", py: -23.51, px: -46.61 },
+      ]);
+      buscarParadasPorLinha.mockResolvedValueOnce([
+        { cp: 10, np: "Parada Paulista", py: -23.5, px: -46.6 },
+        { cp: 12, np: "Parada Centro", py: -23.52, px: -46.62 },
+      ]);
+      buscarPosicaoDosOnibus.mockResolvedValueOnce([
+        { p: "BUS-1", py: -23.51, px: -46.61 },
+      ]);
+      buscarPosicaoDosOnibus.mockResolvedValueOnce([
+        { p: "BUS-2", py: -23.53, px: -46.63 },
+        { p: "BUS-3", py: -23.54, px: -46.64 },
+      ]);
+
+      render(<App />);
+      await buscarPorLinha("8000");
+      await selecionarLinhasEAdicionarAoMapa(101, 202);
+
+      expect(screen.getByLabelText("Resumo do mapa")).toHaveTextContent("2");
+      expect(screen.getByLabelText("Resumo do mapa")).toHaveTextContent("3");
+      expect(screen.getByLabelText("Resumo do mapa")).toHaveTextContent("linhas");
+      expect(screen.getByLabelText("Resumo do mapa")).toHaveTextContent("paradas");
+      expect(screen.getByLabelText("Resumo do mapa")).toHaveTextContent("onibus");
+      expect(screen.getByText("3 paradas · 3 veiculos")).toBeInTheDocument();
     });
 
     it("deve limpar o painel e o mapa quando a busca for apagada", async () => {
@@ -309,8 +364,9 @@ describe("App", () => {
 
       expect(screen.getByLabelText("Numero ou nome da linha")).toHaveValue("");
       expect(screen.getByLabelText("Linha e sentido")).toBeDisabled();
-      expect(screen.getByTestId("map-props")).toHaveTextContent('"paradas":[]');
-      expect(screen.getByTestId("map-props")).toHaveTextContent('"onibus":[]');
+      expect(screen.getByTestId("map-props")).toHaveTextContent(
+        '"linhasAtivas":[]',
+      );
     });
   });
 
