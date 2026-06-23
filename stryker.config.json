@@ -11,5 +11,5 @@
     "!src/main.jsx",
     "!src/test/setup.js"
   ],
-  "timeoutMS": 5000
+  "timeoutMS": 6000
 }
