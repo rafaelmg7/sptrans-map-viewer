@@ -140,6 +140,17 @@ h1 {
   font-weight: 800;
 }
 
+.limit-message {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
 .field {
   display: grid;
   gap: 7px;
@@ -179,6 +190,11 @@ select:focus {
 select:disabled {
   color: #94a3b8;
   background: #f8fafc;
+}
+
+select[multiple] {
+  min-height: 96px;
+  padding: 8px 14px;
 }
 
 button {
