@@ -1,0 +1,15 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "packageManager": "npm",
+  "reporters": ["html", "clear-text", "progress"],
+  "testRunner": "vitest",
+  "testRunner_NODE_ENV": "test",
+  "coverageAnalysis": "perTest",
+  "mutate": [
+    "src/components/**/*.jsx",
+    "src/services/**/*.js",
+    "!src/main.jsx",
+    "!src/test/setup.js"
+  ],
+  "timeoutMS": 5000
+}
