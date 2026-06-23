@@ -21,18 +21,43 @@ const iconeParada = new L.Icon({
   popupAnchor: [0, -35],
 });
 
-export default function MapView({ paradas = [], onibus = [], codigoLinha }) {
+function extrairDadosDoMapa({ linhasAtivas, paradas, onibus, codigoLinha }) {
+  if (linhasAtivas.length === 0) {
+    return { paradas, onibus, codigoLinha };
+  }
+
+  const ultimaLinhaAtiva = linhasAtivas[linhasAtivas.length - 1];
+
+  return {
+    paradas: linhasAtivas.flatMap((linhaAtiva) => linhaAtiva.paradas ?? []),
+    onibus: linhasAtivas.flatMap((linhaAtiva) => linhaAtiva.onibus ?? []),
+    codigoLinha: ultimaLinhaAtiva?.linha?.cl ?? null,
+  };
+}
+
+export default function MapView({
+  linhasAtivas = [],
+  paradas = [],
+  onibus = [],
+  codigoLinha,
+}) {
   const [previsoes, setPrevisoes] = useState({});
+  const dadosDoMapa = extrairDadosDoMapa({
+    linhasAtivas,
+    paradas,
+    onibus,
+    codigoLinha,
+  });
   const center = [-23.55052, -46.633308]; // centro de SP
-  const paradasComCoordenadas = paradas.filter(
+  const paradasComCoordenadas = dadosDoMapa.paradas.filter(
     (parada) => Number.isFinite(parada?.py) && Number.isFinite(parada?.px)
   );
-  const onibusComCoordenadas = onibus.filter(
+  const onibusComCoordenadas = dadosDoMapa.onibus.filter(
     (veiculo) => Number.isFinite(veiculo?.py) && Number.isFinite(veiculo?.px)
   );
 
   async function handleClickParada(parada) {
-    if (!codigoLinha) {
+    if (!dadosDoMapa.codigoLinha) {
       setPrevisoes((prev) => ({
         ...prev,
         [parada.cp]: [],
@@ -41,7 +66,7 @@ export default function MapView({ paradas = [], onibus = [], codigoLinha }) {
     }
 
     try {
-      const data = await buscarPrevisao(parada.cp, codigoLinha);
+      const data = await buscarPrevisao(parada.cp, dadosDoMapa.codigoLinha);
       const veiculos = normalizarPrevisoes(data);
 
       setPrevisoes((prev) => ({
