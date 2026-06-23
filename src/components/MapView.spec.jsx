@@ -18,7 +18,8 @@ vi.mock("react-leaflet", async () => {
   return {
     MapContainer: ({ children }) =>
       React.createElement("div", { "data-testid": "map-container" }, children),
-    TileLayer: () => React.createElement("div", { "data-testid": "tile-layer" }),
+    TileLayer: () =>
+      React.createElement("div", { "data-testid": "tile-layer" }),
     Marker: ({ children, eventHandlers, icon, position }) =>
       React.createElement(
         "div",
@@ -33,9 +34,9 @@ vi.mock("react-leaflet", async () => {
             type: "button",
             onClick: () => eventHandlers?.click?.(),
           },
-          "marker"
+          "marker",
         ),
-        children
+        children,
       ),
     Popup: ({ children }) =>
       React.createElement("div", { "data-testid": "popup" }, children),
@@ -56,8 +57,10 @@ describe("MapView", () => {
       <MapView
         codigoLinha={101}
         paradas={[{ cp: 10, np: "Parada Paulista", py: -23.5, px: -46.6 }]}
-        onibus={[{ p: "BUS-1", py: -23.51, px: -46.61, ta: "2026-06-22T12:00:00Z" }]}
-      />
+        onibus={[
+          { p: "BUS-1", py: -23.51, px: -46.61, ta: "2026-06-22T12:00:00Z" },
+        ]}
+      />,
     );
 
     expect(screen.getByTestId("map-container")).toBeInTheDocument();
@@ -80,7 +83,7 @@ describe("MapView", () => {
           { p: "BUS-1", py: -23.51, px: -46.61, ta: "2026-06-22T12:00:00Z" },
           { p: "BUS-2", py: "23", px: -46.62, ta: "2026-06-22T12:01:00Z" },
         ]}
-      />
+      />,
     );
 
     expect(screen.getByText("Parada Valida")).toBeInTheDocument();
@@ -105,7 +108,7 @@ describe("MapView", () => {
       <MapView
         codigoLinha={101}
         paradas={[{ cp: 10, np: "Parada Paulista", py: -23.5, px: -46.6 }]}
-      />
+      />,
     );
 
     await user.click(screen.getByRole("button", { name: "marker" }));
@@ -130,7 +133,7 @@ describe("MapView", () => {
       <MapView
         codigoLinha={101}
         paradas={[{ cp: 20, np: "Parada Centro", py: -23.52, px: -46.62 }]}
-      />
+      />,
     );
 
     await user.click(screen.getByRole("button", { name: "marker" }));
@@ -147,19 +150,23 @@ describe("MapView", () => {
       <MapView
         codigoLinha={101}
         paradas={[{ cp: 10, np: "Parada Paulista", py: -23.5, px: -46.6 }]}
-      />
+      />,
     );
 
     await user.click(screen.getByRole("button", { name: "marker" }));
 
-    expect(await screen.findByText("Sem previsão disponível")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Sem previsão disponível"),
+    ).toBeInTheDocument();
   });
 
   it("nao chama a API e mostra vazio quando a linha nao foi selecionada", async () => {
     const user = userEvent.setup();
 
     render(
-      <MapView paradas={[{ cp: 10, np: "Parada Paulista", py: -23.5, px: -46.6 }]} />
+      <MapView
+        paradas={[{ cp: 10, np: "Parada Paulista", py: -23.5, px: -46.6 }]}
+      />,
     );
 
     await user.click(screen.getByRole("button", { name: "marker" }));
@@ -180,7 +187,14 @@ describe("MapView", () => {
             paradas: [
               { cp: 10, np: "Parada Compartilhada", py: -23.5, px: -46.6 },
             ],
-            onibus: [{ p: "BUS-1", py: -23.51, px: -46.61, ta: "2026-06-22T12:00:00Z" }],
+            onibus: [
+              {
+                p: "BUS-1",
+                py: -23.51,
+                px: -46.61,
+                ta: "2026-06-22T12:00:00Z",
+              },
+            ],
           },
           {
             id: "202",
@@ -190,7 +204,14 @@ describe("MapView", () => {
             paradas: [
               { cp: 10, np: "Parada Compartilhada", py: -23.5, px: -46.6 },
             ],
-            onibus: [{ p: "BUS-2", py: -23.52, px: -46.62, ta: "2026-06-22T12:01:00Z" }],
+            onibus: [
+              {
+                p: "BUS-2",
+                py: -23.52,
+                px: -46.62,
+                ta: "2026-06-22T12:01:00Z",
+              },
+            ],
           },
         ]}
       />,
@@ -199,10 +220,18 @@ describe("MapView", () => {
     expect(screen.getAllByText("Parada Compartilhada")).toHaveLength(1);
     expect(screen.getAllByTestId("marker")).toHaveLength(3);
     const popupParada = screen.getAllByTestId("popup")[0];
-    expect(within(popupParada).getByText("Linhas atendidas")).toBeInTheDocument();
-    expect(within(popupParada).getByText("Linha 101")).toBeInTheDocument();
-    expect(within(popupParada).getByText("Linha 202")).toBeInTheDocument();
-    expect(within(popupParada).getByText("2 linhas nesta parada")).toBeInTheDocument();
+    expect(
+      within(popupParada).getByText("Linhas atendidas"),
+    ).toBeInTheDocument();
+    expect(
+      within(popupParada).getAllByText("Linha 101").length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(popupParada).getAllByText("Linha 202").length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(popupParada).getByText("2 linhas nesta parada"),
+    ).toBeInTheDocument();
 
     const marcadorParada = screen.getAllByTestId("marker")[0];
     expect(marcadorParada).toHaveAttribute(
@@ -221,7 +250,14 @@ describe("MapView", () => {
             cor: "#0f766e",
             linha: { cl: 101 },
             paradas: [],
-            onibus: [{ p: "BUS-1", py: -23.51, px: -46.61, ta: "2026-06-22T12:00:00Z" }],
+            onibus: [
+              {
+                p: "BUS-1",
+                py: -23.51,
+                px: -46.61,
+                ta: "2026-06-22T12:00:00Z",
+              },
+            ],
           },
           {
             id: "202",
@@ -229,7 +265,14 @@ describe("MapView", () => {
             cor: "#0369a1",
             linha: { cl: 202 },
             paradas: [],
-            onibus: [{ p: "BUS-2", py: -23.52, px: -46.62, ta: "2026-06-22T12:01:00Z" }],
+            onibus: [
+              {
+                p: "BUS-2",
+                py: -23.52,
+                px: -46.62,
+                ta: "2026-06-22T12:01:00Z",
+              },
+            ],
           },
         ]}
       />,
@@ -242,5 +285,171 @@ describe("MapView", () => {
     expect(screen.getByLabelText("Cor da linha Linha 101")).toHaveStyle({
       backgroundColor: "#0f766e",
     });
+  });
+
+  it("carrega previsao por linha em parada compartilhada", async () => {
+    const user = userEvent.setup();
+    buscarPrevisao.mockResolvedValueOnce({
+      linhas: [
+        {
+          codigoLinha: 101,
+          veiculos: [{ placa: "BUS-1", horaPrevista: "12:10", minutos: 10 }],
+        },
+      ],
+    });
+
+    render(
+      <MapView
+        linhasAtivas={[
+          {
+            id: "101",
+            descricao: "Linha 101",
+            cor: "#0f766e",
+            linha: { cl: 101 },
+            paradas: [
+              { cp: 10, np: "Parada Compartilhada", py: -23.5, px: -46.6 },
+            ],
+            onibus: [],
+          },
+          {
+            id: "202",
+            descricao: "Linha 202",
+            cor: "#0369a1",
+            linha: { cl: 202 },
+            paradas: [
+              { cp: 10, np: "Parada Compartilhada", py: -23.5, px: -46.6 },
+            ],
+            onibus: [],
+          },
+        ]}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Carregar previsao Linha 101" }),
+    );
+
+    await waitFor(() => {
+      expect(buscarPrevisao).toHaveBeenCalledWith(10, 101);
+    });
+    expect(screen.getByText(/12:10/)).toBeInTheDocument();
+    expect(screen.getByText(/10 min/)).toBeInTheDocument();
+  });
+
+  it("cacheia previsoes separadas por parada e linha", async () => {
+    const user = userEvent.setup();
+    buscarPrevisao
+      .mockResolvedValueOnce({
+        linhas: [
+          {
+            codigoLinha: 101,
+            veiculos: [{ placa: "BUS-1", horaPrevista: "12:10" }],
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        linhas: [
+          {
+            codigoLinha: 202,
+            veiculos: [{ placa: "BUS-2", horaPrevista: "12:20" }],
+          },
+        ],
+      });
+
+    render(
+      <MapView
+        linhasAtivas={[
+          {
+            id: "101",
+            descricao: "Linha 101",
+            cor: "#0f766e",
+            linha: { cl: 101 },
+            paradas: [
+              { cp: 10, np: "Parada Compartilhada", py: -23.5, px: -46.6 },
+            ],
+            onibus: [],
+          },
+          {
+            id: "202",
+            descricao: "Linha 202",
+            cor: "#0369a1",
+            linha: { cl: 202 },
+            paradas: [
+              { cp: 10, np: "Parada Compartilhada", py: -23.5, px: -46.6 },
+            ],
+            onibus: [],
+          },
+        ]}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Carregar previsao Linha 101" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Carregar previsao Linha 202" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Carregar previsao Linha 101" }),
+    );
+
+    await waitFor(() => {
+      expect(buscarPrevisao).toHaveBeenCalledTimes(2);
+    });
+    expect(buscarPrevisao).toHaveBeenNthCalledWith(1, 10, 101);
+    expect(buscarPrevisao).toHaveBeenNthCalledWith(2, 10, 202);
+    expect(screen.getByText(/12:10/)).toBeInTheDocument();
+    expect(screen.getByText(/12:20/)).toBeInTheDocument();
+  });
+
+  it("mostra vazio apenas para a linha sem previsao", async () => {
+    const user = userEvent.setup();
+    buscarPrevisao.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      linhas: [
+        {
+          codigoLinha: 202,
+          veiculos: [{ placa: "BUS-2", horaPrevista: "12:20" }],
+        },
+      ],
+    });
+
+    render(
+      <MapView
+        linhasAtivas={[
+          {
+            id: "101",
+            descricao: "Linha 101",
+            cor: "#0f766e",
+            linha: { cl: 101 },
+            paradas: [
+              { cp: 10, np: "Parada Compartilhada", py: -23.5, px: -46.6 },
+            ],
+            onibus: [],
+          },
+          {
+            id: "202",
+            descricao: "Linha 202",
+            cor: "#0369a1",
+            linha: { cl: 202 },
+            paradas: [
+              { cp: 10, np: "Parada Compartilhada", py: -23.5, px: -46.6 },
+            ],
+            onibus: [],
+          },
+        ]}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Carregar previsao Linha 101" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Carregar previsao Linha 202" }),
+    );
+
+    expect(
+      await screen.findByText("Sem previsão disponível"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/12:20/)).toBeInTheDocument();
   });
 });
