@@ -88,7 +88,7 @@ describe("App", () => {
       expect(
         screen.getByLabelText("Numero ou nome da linha"),
       ).toBeInTheDocument();
-      expect(screen.getByLabelText("Linha encontrada")).toBeDisabled();
+      expect(screen.getByLabelText("Linha e sentido")).toBeDisabled();
       expect(screen.getByRole("button", { name: "Buscar" })).toBeDisabled();
       expect(
         screen.getByRole("button", { name: "Mostrar no mapa" }),
@@ -115,6 +115,51 @@ describe("App", () => {
       expect(
         screen.getByRole("option", { name: /8000-10/ }),
       ).toBeInTheDocument();
+    });
+
+    it("deve diferenciar linhas com mesmo letreiro por sentido e codigo unico", async () => {
+      buscarLinhas.mockResolvedValueOnce([
+        {
+          cl: 1273,
+          lt: "8000",
+          tl: 10,
+          sl: 1,
+          tp: "PCA.RAMOS DE AZEVEDO",
+          ts: "TERMINAL LAPA",
+        },
+        {
+          cl: 34041,
+          lt: "8000",
+          tl: 10,
+          sl: 2,
+          tp: "PCA.RAMOS DE AZEVEDO",
+          ts: "TERMINAL LAPA",
+        },
+      ]);
+      buscarParadasPorLinha.mockResolvedValueOnce([]);
+      buscarPosicaoDosOnibus.mockResolvedValueOnce([]);
+
+      render(<App />);
+      await buscarPorLinha("8000");
+
+      expect(
+        screen.getByRole("option", {
+          name: "8000-10 | ida | PCA.RAMOS DE AZEVEDO -> TERMINAL LAPA | cl 1273",
+        }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("option", {
+          name: "8000-10 | volta | TERMINAL LAPA -> PCA.RAMOS DE AZEVEDO | cl 34041",
+        }),
+      ).toBeInTheDocument();
+
+      await selecionarLinhaEExibirNoMapa(34041);
+
+      expect(buscarParadasPorLinha).toHaveBeenCalledWith(34041);
+      expect(buscarPosicaoDosOnibus).toHaveBeenCalledWith(34041);
+      expect(screen.getByLabelText("Linha ativa")).toHaveTextContent(
+        "8000-10 | volta | TERMINAL LAPA -> PCA.RAMOS DE AZEVEDO | cl 34041",
+      );
     });
 
     it("deve avisar o usuário quando a busca não encontrar resultados", async () => {
@@ -190,7 +235,7 @@ describe("App", () => {
       fireEvent.click(screen.getByRole("button", { name: "Limpar painel" }));
 
       expect(screen.getByLabelText("Numero ou nome da linha")).toHaveValue("");
-      expect(screen.getByLabelText("Linha encontrada")).toBeDisabled();
+      expect(screen.getByLabelText("Linha e sentido")).toBeDisabled();
       expect(screen.getByTestId("map-props")).toHaveTextContent('"paradas":[]');
       expect(screen.getByTestId("map-props")).toHaveTextContent('"onibus":[]');
     });
