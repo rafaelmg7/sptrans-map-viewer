@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buscarPrevisao } from "../services/sptransAPI";
@@ -19,11 +19,12 @@ vi.mock("react-leaflet", async () => {
     MapContainer: ({ children }) =>
       React.createElement("div", { "data-testid": "map-container" }, children),
     TileLayer: () => React.createElement("div", { "data-testid": "tile-layer" }),
-    Marker: ({ children, eventHandlers, position }) =>
+    Marker: ({ children, eventHandlers, icon, position }) =>
       React.createElement(
         "div",
         {
           "data-testid": "marker",
+          "data-icon-class": icon?.options?.className ?? "",
           "data-position": JSON.stringify(position),
         },
         React.createElement(
@@ -165,5 +166,81 @@ describe("MapView", () => {
 
     expect(buscarPrevisao).not.toHaveBeenCalled();
     expect(screen.getByText("Sem previsão disponível")).toBeInTheDocument();
+  });
+
+  it("agrupa paradas com mesmo codigo em linhas diferentes", () => {
+    render(
+      <MapView
+        linhasAtivas={[
+          {
+            id: "101",
+            descricao: "Linha 101",
+            cor: "#0f766e",
+            linha: { cl: 101 },
+            paradas: [
+              { cp: 10, np: "Parada Compartilhada", py: -23.5, px: -46.6 },
+            ],
+            onibus: [{ p: "BUS-1", py: -23.51, px: -46.61, ta: "2026-06-22T12:00:00Z" }],
+          },
+          {
+            id: "202",
+            descricao: "Linha 202",
+            cor: "#0369a1",
+            linha: { cl: 202 },
+            paradas: [
+              { cp: 10, np: "Parada Compartilhada", py: -23.5, px: -46.6 },
+            ],
+            onibus: [{ p: "BUS-2", py: -23.52, px: -46.62, ta: "2026-06-22T12:01:00Z" }],
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getAllByText("Parada Compartilhada")).toHaveLength(1);
+    expect(screen.getAllByTestId("marker")).toHaveLength(3);
+    const popupParada = screen.getAllByTestId("popup")[0];
+    expect(within(popupParada).getByText("Linhas atendidas")).toBeInTheDocument();
+    expect(within(popupParada).getByText("Linha 101")).toBeInTheDocument();
+    expect(within(popupParada).getByText("Linha 202")).toBeInTheDocument();
+    expect(within(popupParada).getByText("2 linhas nesta parada")).toBeInTheDocument();
+
+    const marcadorParada = screen.getAllByTestId("marker")[0];
+    expect(marcadorParada).toHaveAttribute(
+      "data-icon-class",
+      "shared-stop-marker",
+    );
+  });
+
+  it("renderiza veiculos por linha com a cor da linha no popup", () => {
+    render(
+      <MapView
+        linhasAtivas={[
+          {
+            id: "101",
+            descricao: "Linha 101",
+            cor: "#0f766e",
+            linha: { cl: 101 },
+            paradas: [],
+            onibus: [{ p: "BUS-1", py: -23.51, px: -46.61, ta: "2026-06-22T12:00:00Z" }],
+          },
+          {
+            id: "202",
+            descricao: "Linha 202",
+            cor: "#0369a1",
+            linha: { cl: 202 },
+            paradas: [],
+            onibus: [{ p: "BUS-2", py: -23.52, px: -46.62, ta: "2026-06-22T12:01:00Z" }],
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText(/Onibus BUS-1|Ônibus BUS-1/)).toBeInTheDocument();
+    expect(screen.getByText(/Onibus BUS-2|Ônibus BUS-2/)).toBeInTheDocument();
+    expect(screen.getByText("Linha 101")).toBeInTheDocument();
+    expect(screen.getByText("Linha 202")).toBeInTheDocument();
+    expect(screen.getByLabelText("Cor da linha Linha 101")).toHaveStyle({
+      backgroundColor: "#0f766e",
+    });
   });
 });
