@@ -1,13 +1,13 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import { AUTO_UPDATE_INTERVAL_MS } from "./config";
 import {
   autenticarSPTrans,
   buscarLinhas,
   buscarParadasPorLinha,
   buscarPosicaoDosOnibus,
 } from "./services/sptransAPI";
-import { AUTO_UPDATE_INTERVAL_MS } from "./config";
 
 vi.mock("./services/sptransAPI", () => ({
   autenticarSPTrans: vi.fn(),
