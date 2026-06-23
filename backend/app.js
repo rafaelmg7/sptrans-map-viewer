@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 
-export const DEFAULT_API_BASE = "http://api.olhovivo.sptrans.com.br/v2.1";
+export const DEFAULT_API_BASE = "https://api.olhovivo.sptrans.com.br/v2.1";
 
 const defaultLogger = {
   info: (...args) => console.log(...args),
