@@ -214,7 +214,7 @@ function App() {
   const podeLimpar =
     termo || linhas.length > 0 || paradas.length > 0 || onibus.length > 0;
   const descricaoLinhaSelecionada = linhaSelecionada
-    ? `${linhaSelecionada.lt} - ${linhaSelecionada.tp} ⇄ ${linhaSelecionada.ts}`
+    ? formatarLinhaEncontrada(linhaSelecionada)
     : null;
 
   return (
@@ -233,7 +233,7 @@ function App() {
           <div className="metric-row" aria-label="Resumo do mapa">
             <div>
               <strong>{linhas.length}</strong>
-              <span>linhas</span>
+              <span>opcoes</span>
             </div>
             <div>
               <strong>{paradas.length}</strong>
