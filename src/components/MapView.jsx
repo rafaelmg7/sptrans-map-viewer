@@ -258,6 +258,10 @@ export default function MapView({
       return <span>Carregando previsão...</span>;
     }
 
+    if (previsao.erro) {
+      return <span>Erro ao carregar previsão</span>;
+    }
+
     if (previsao.veiculos.length === 0) {
       return <span>Sem previsão disponível</span>;
     }

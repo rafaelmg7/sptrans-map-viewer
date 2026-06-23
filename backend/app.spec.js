@@ -28,6 +28,8 @@ function makeApp(options = {}) {
     apiBase,
     token: options.token ?? "token teste",
     clock: options.clock ?? (() => fixedNow),
+    allowedOrigins: options.allowedOrigins,
+    allowLocalhostDev: options.allowLocalhostDev,
   });
 
   return { app, client, logger };
@@ -369,6 +371,29 @@ describe("createApp", () => {
     expect(client.post).not.toHaveBeenCalled();
   });
 
+  it("nao usa token fallback quando SPTRANS_API_KEY esta ausente", async () => {
+    const tokenOriginal = process.env.SPTRANS_API_KEY;
+
+    try {
+      delete process.env.SPTRANS_API_KEY;
+      const client = makeClient();
+      const logger = makeLogger();
+      const app = createApp({ client, apiBase, logger });
+
+      const response = await request(app).post("/api/Login/Autenticar");
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({ error: "Falha ao autenticar na SPTrans" });
+      expect(client.post).not.toHaveBeenCalled();
+    } finally {
+      if (tokenOriginal === undefined) {
+        delete process.env.SPTRANS_API_KEY;
+      } else {
+        process.env.SPTRANS_API_KEY = tokenOriginal;
+      }
+    }
+  });
+
   it("retorna 500 controlado quando o client nao foi configurado", async () => {
     const { app } = makeApp({ client: null });
 
@@ -494,12 +519,12 @@ describe("createApp", () => {
     const { app } = makeApp({ client });
 
     const response = await request(app).get(
-      "/api/Posicao?codigoLinha=101&codigoLinha=202"
+      "/api/Posicao/Linha?codigoLinha=101&codigoLinha=202"
     );
 
     expect(response.status).toBe(200);
     expect(client.get).toHaveBeenCalledWith(
-      `${apiBase}/Posicao?codigoLinha=101&codigoLinha=202`
+      `${apiBase}/Posicao/Linha?codigoLinha=101&codigoLinha=202`
     );
   });
 
@@ -530,6 +555,52 @@ describe("createApp", () => {
     expect(logger.error).toHaveBeenCalledWith(
       "Erro na requisicao:",
       "SPTrans fora"
+    );
+  });
+
+  it("bloqueia endpoints fora da allowlist sem autenticar", async () => {
+    const { app, client } = makeApp();
+
+    const response = await request(app).get("/api/Operador?codigo=1");
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ error: "Endpoint nao permitido" });
+    expect(client.post).not.toHaveBeenCalled();
+    expect(client.get).not.toHaveBeenCalled();
+  });
+
+  it("bloqueia origens nao permitidas antes de autenticar", async () => {
+    const { app, client } = makeApp({
+      allowedOrigins: ["https://app.exemplo.test"],
+      allowLocalhostDev: false,
+    });
+
+    const response = await request(app)
+      .get("/api/Linha/Buscar?termosBusca=8000")
+      .set("Origin", "https://malicioso.test");
+
+    expect(response.status).toBe(403);
+    expect(response.body).toEqual({ error: "Origem nao permitida" });
+    expect(client.post).not.toHaveBeenCalled();
+    expect(client.get).not.toHaveBeenCalled();
+  });
+
+  it("permite origens configuradas no CORS", async () => {
+    const client = makeClient();
+    client.get.mockResolvedValueOnce({ data: [] });
+    const { app } = makeApp({
+      client,
+      allowedOrigins: "https://app.exemplo.test",
+      allowLocalhostDev: false,
+    });
+
+    const response = await request(app)
+      .get("/api/Linha/Buscar?termosBusca=8000")
+      .set("Origin", "https://app.exemplo.test");
+
+    expect(response.status).toBe(200);
+    expect(response.headers["access-control-allow-origin"]).toBe(
+      "https://app.exemplo.test"
     );
   });
 

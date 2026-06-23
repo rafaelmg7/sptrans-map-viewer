@@ -96,6 +96,7 @@ function App() {
   const [historicoBuscas, setHistoricoBuscas] = useState([]);
   const [autoAtualizar, setAutoAtualizar] = useState(true);
   const [buscaRealizada, setBuscaRealizada] = useState(false);
+  const [erroBusca, setErroBusca] = useState("");
   const [mensagemSelecao, setMensagemSelecao] = useState("");
   const intervalRef = useRef(null);
   const linhasAtivasRef = useRef([]);
@@ -126,6 +127,7 @@ function App() {
       setCodigosSelecionados([]);
       linhasAtivasRef.current = [];
       setLinhasAtivas([]);
+      setErroBusca("");
       setMensagemSelecao("");
       setBuscaRealizada(false);
       limparIntervalo();
@@ -134,6 +136,7 @@ function App() {
 
     setBuscandoLinhas(true);
     setCodigosSelecionados([]);
+    setErroBusca("");
     setMensagemSelecao("");
     setBuscaRealizada(false);
 
@@ -142,6 +145,10 @@ function App() {
       setLinhas(data);
       setBuscaRealizada(true);
       registrarBusca(termoNormalizado);
+    } catch {
+      setLinhas([]);
+      setErroBusca("Erro ao buscar linhas. Tente novamente.");
+      setBuscaRealizada(true);
     } finally {
       setBuscandoLinhas(false);
     }
@@ -301,6 +308,7 @@ function App() {
     setLinhas([]);
     setCodigosSelecionados([]);
     sincronizarLinhasAtivas([]);
+    setErroBusca("");
     setMensagemSelecao("");
     setBuscaRealizada(false);
   };
@@ -320,6 +328,7 @@ function App() {
     linhas.length > 0 ||
     codigosSelecionados.length > 0 ||
     linhasAtivas.length > 0 ||
+    erroBusca ||
     mensagemSelecao;
   const carregandoMapa = algumaLinhaCarregando(linhasAtivas);
   const totalParadas = contarParadasAgrupadas(linhasAtivas);
@@ -419,11 +428,15 @@ function App() {
             </div>
           )}
 
-          {buscaRealizada && linhas.length === 0 && (
+          {erroBusca ? (
+            <p className="empty-message" role="alert">
+              {erroBusca}
+            </p>
+          ) : buscaRealizada && linhas.length === 0 ? (
             <p className="empty-message" role="alert">
               Nenhuma linha encontrada para esse termo.
             </p>
-          )}
+          ) : null}
 
           <div className="action-row">
             <label className="field select-field">

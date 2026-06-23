@@ -5,6 +5,9 @@ Aplicação web para buscar linhas de ônibus de São Paulo, visualizar paradas 
 ## Membros do Grupo
 
 - Diogo Tuler Chaves
+- Hector Soares
+- João Marcos Tomaz
+- Rafael Martins Gomes
 
 ## Sistema
 
@@ -13,6 +16,7 @@ O sistema possui:
 - frontend em React com mapa Leaflet;
 - backend em Node.js/Express para autenticar e consultar a SPTrans;
 - normalização de respostas da SPTrans para formatos mais simples de usar na interface;
+- visualização de até 5 linhas simultâneas com cores por linha;
 - histórico de buscas recentes;
 - atualização manual e autoatualização dos veículos;
 - ação para limpar o painel e reiniciar a exploração;
@@ -53,10 +57,13 @@ Preencha `backend/.env` com sua chave da SPTrans:
 
 ```env
 SPTRANS_API_KEY=sua_chave_sptrans
+FRONTEND_ORIGINS=http://localhost:5173
 PORT=3000
 ```
 
-O arquivo `.env` do frontend pode manter o valor padrao quando o backend estiver rodando em `http://localhost:3000`.
+`FRONTEND_ORIGINS` aceita uma lista separada por vírgulas. Em desenvolvimento, origens `localhost` e `127.0.0.1` são aceitas por padrão; em produção, configure explicitamente a origem pública do frontend.
+
+O arquivo `.env` do frontend pode manter o valor padrão quando o backend estiver rodando em `http://localhost:3000`.
 
 ## Como Rodar
 
@@ -100,26 +107,19 @@ Relatórios HTML:
 
 ## Cobertura Atual
 
-Última execução local:
+Total atual: 94 testes automatizados.
 
-| Parte | Testes | Statements | Branches | Functions | Lines |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Frontend | 40 | 96.83% | 95.78% | 97.82% | 97.35% |
-| Backend | 29 | 98.83% | 95.65% | 100% | 100% |
-
-Total atual: 69 testes automatizados.
-
-O requisito da disciplina é cobertura maior ou igual a 80%. O projeto também configura thresholds mínimos no Vitest: 90% para statements, lines e functions, e 80% para branches.
+O requisito da disciplina é cobertura maior ou igual a 80%. O projeto também configura thresholds mínimos no Vitest: 90% para statements, lines e functions, e 80% para branches. Os valores atuais podem ser regenerados com `npm run coverage:all`.
 
 ## Testes Implementados
 
 | Arquivo | Quantidade | Tipo | O que verifica |
 | --- | ---: | --- | --- |
-| `src/App.spec.jsx` | 7 | Componente/comportamento | autenticação inicial, layout principal, busca de linhas, seleção, carregamento do mapa, histórico de buscas, atualização manual, limpeza do painel e toggle de autoatualização |
-| `src/components/MapView.spec.jsx` | 5 | Componente/comportamento | renderização com Leaflet mockado, clique em parada, previsão normalizada, previsão bruta e estado vazio |
-| `src/services/sptransAPI.spec.js` | 15 | Unidade/API pública | chamadas Axios, fallback em erros, retornos vazios seguros e encoding de parâmetros especiais |
+| `src/App.spec.jsx` | 20 | Componente/comportamento | autenticação inicial, layout principal, busca de linhas, seleção múltipla, limite de linhas, erros de busca, carregamento do mapa, histórico, atualização manual, limpeza, remoção e autoatualização |
+| `src/components/MapView.spec.jsx` | 13 | Componente/comportamento | renderização com Leaflet mockado, ícones coloridos, paradas agrupadas, clique em parada, previsão normalizada, previsão bruta, cache por linha, erro e estado vazio |
+| `src/services/sptransAPI.spec.js` | 15 | Unidade/API pública | chamadas Axios, propagação de erros, retornos vazios seguros em payloads válidos e encoding de parâmetros especiais |
 | `src/services/normalizarPrevisao.spec.js` | 13 | Unidade/normalização | formatos da SPTrans, payloads vazios, fallbacks, ordem dos veículos, tabela de prioridade de descrição e valores falsy |
-| `backend/app.spec.js` | 29 | Unidade e integração | normalização do backend, rotas Express, autenticação, cache, erros controlados, encoding, query params repetidos e casos de borda de tempo |
+| `backend/app.spec.js` | 33 | Unidade e integração | normalização do backend, rotas Express, autenticação, CORS, allowlist de proxy, ausência de token, cache, erros controlados, encoding, query params repetidos e casos de borda de tempo |
 
 ## Estratégias de Teste
 

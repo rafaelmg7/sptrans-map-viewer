@@ -186,6 +186,19 @@ describe("App", () => {
       );
     });
 
+    it("deve avisar o usuário quando a busca falhar", async () => {
+      buscarLinhas.mockRejectedValueOnce(new Error("fora do ar"));
+
+      render(<App />);
+      await buscarPorLinha("8000");
+
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Erro ao buscar linhas. Tente novamente.",
+      );
+      expect(screen.queryByText("Nenhuma linha encontrada para esse termo."))
+        .not.toBeInTheDocument();
+    });
+
     it("deve manter o histórico de buscas e permitir repetir uma busca recente", async () => {
       buscarLinhas.mockResolvedValue([
         { cl: 101, lt: "8000-10", tp: "A", ts: "B" },

@@ -163,6 +163,24 @@ describe("MapView", () => {
     ).toBeInTheDocument();
   });
 
+  it("exibe erro quando a previsao falhar", async () => {
+    const user = userEvent.setup();
+    buscarPrevisao.mockRejectedValueOnce(new Error("indisponivel"));
+
+    render(
+      <MapView
+        codigoLinha={101}
+        paradas={[{ cp: 10, np: "Parada Paulista", py: -23.5, px: -46.6 }]}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "marker" }));
+
+    expect(
+      await screen.findByText("Erro ao carregar previsão"),
+    ).toBeInTheDocument();
+  });
+
   it("nao chama a API e mostra vazio quando a linha nao foi selecionada", async () => {
     const user = userEvent.setup();
 

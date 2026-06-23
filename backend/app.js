@@ -1,12 +1,47 @@
-import express from "express";
 import cors from "cors";
+import express from "express";
 
 export const DEFAULT_API_BASE = "https://api.olhovivo.sptrans.com.br/v2.1";
+export const DEFAULT_ALLOWED_PROXY_ENDPOINTS = [
+  "Linha/Buscar",
+  "Parada/BuscarParadasPorLinha",
+  "Posicao/Linha",
+];
 
 const defaultLogger = {
   info: (...args) => console.log(...args),
   error: (...args) => console.error(...args),
 };
+
+function parseAllowedOrigins(value) {
+  if (Array.isArray(value)) {
+    return value.filter(Boolean);
+  }
+
+  if (typeof value !== "string") {
+    return [];
+  }
+
+  return value
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
+
+function isLocalhostOrigin(origin) {
+  return /^https?:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
+}
+
+function isOriginAllowed(origin, allowedOrigins, allowLocalhostDev) {
+  if (!origin) {
+    return true;
+  }
+
+  return (
+    allowedOrigins.includes(origin) ||
+    (allowLocalhostDev && isLocalhostOrigin(origin))
+  );
+}
 
 function getNowMs(now) {
   const value = typeof now === "function" ? now() : now;
@@ -81,7 +116,8 @@ function normalizeVeiculo(veiculo, nowMs) {
 
   return {
     placa: veiculo?.placa ?? veiculo?.p ?? null,
-    horaPrevista: veiculo?.horaPrevista ?? veiculo?.horario ?? veiculo?.t ?? null,
+    horaPrevista:
+      veiculo?.horaPrevista ?? veiculo?.horario ?? veiculo?.t ?? null,
     minutos: veiculo?.minutos ?? minutosCalculados,
     ativo: veiculo?.ativo ?? veiculo?.a ?? null,
     py: veiculo?.py ?? null,
@@ -105,11 +141,16 @@ export function normalizePrevisao(payload, options = {}) {
 
   return {
     parada: {
-      codigoParada: payload?.parada?.codigoParada ?? payload?.p?.cp ?? options.codigoParada ?? null,
+      codigoParada:
+        payload?.parada?.codigoParada ??
+        payload?.p?.cp ??
+        options.codigoParada ??
+        null,
       nome: payload?.parada?.nome ?? payload?.p?.np ?? null,
     },
     linhas,
-    atualizado: payload?.atualizado ?? payload?.hr ?? new Date(nowMs).toISOString(),
+    atualizado:
+      payload?.atualizado ?? payload?.hr ?? new Date(nowMs).toISOString(),
   };
 }
 
@@ -120,10 +161,35 @@ export function createApp(options = {}) {
     apiBase = DEFAULT_API_BASE,
     logger = defaultLogger,
     clock = Date.now,
+    allowedOrigins = process.env.FRONTEND_ORIGINS ??
+      process.env.FRONTEND_ORIGIN,
+    allowedProxyEndpoints = DEFAULT_ALLOWED_PROXY_ENDPOINTS,
+    allowLocalhostDev = process.env.NODE_ENV !== "production",
   } = options;
+  const allowedOriginsList = parseAllowedOrigins(allowedOrigins);
+  const allowedProxyEndpointSet = new Set(allowedProxyEndpoints);
 
   const app = express();
-  app.use(cors());
+
+  app.use((req, res, next) => {
+    const origin = req.get("Origin");
+
+    if (!isOriginAllowed(origin, allowedOriginsList, allowLocalhostDev)) {
+      return res.status(403).json({ error: "Origem nao permitida" });
+    }
+
+    return next();
+  });
+  app.use(
+    cors({
+      origin(origin, callback) {
+        callback(
+          null,
+          isOriginAllowed(origin, allowedOriginsList, allowLocalhostDev),
+        );
+      },
+    }),
+  );
 
   let autenticado = false;
 
@@ -142,7 +208,7 @@ export function createApp(options = {}) {
 
     logger.info?.("Autenticando na SPTrans...");
     await client.post(
-      `${apiBase}/Login/Autenticar?token=${encodeURIComponent(token)}`
+      `${apiBase}/Login/Autenticar?token=${encodeURIComponent(token)}`,
     );
     autenticado = true;
     logger.info?.("Autenticacao concluida.");
@@ -180,7 +246,7 @@ export function createApp(options = {}) {
         normalizePrevisao(data, {
           codigoParada,
           now: clock,
-        })
+        }),
       );
     } catch (err) {
       logger.error?.("Erro ao buscar previsao:", err.message);
@@ -191,10 +257,15 @@ export function createApp(options = {}) {
   });
 
   app.get(/^\/api\/(.*)/, async (req, res) => {
+    const subpath = req.params[0];
+
+    if (!allowedProxyEndpointSet.has(subpath)) {
+      return res.status(404).json({ error: "Endpoint nao permitido" });
+    }
+
     try {
       await autenticar();
 
-      const subpath = req.params[0];
       const url = buildUrl(apiBase, subpath, req.query);
       const response = await client.get(url);
 

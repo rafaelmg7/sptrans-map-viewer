@@ -64,10 +64,10 @@ describe("sptransAPI", () => {
       );
     });
 
-    it("retorna array vazio e registra erro em falha", async () => {
+    it("propaga erro e registra falha", async () => {
       vi.spyOn(api, "get").mockRejectedValueOnce(new Error("Network Error"));
 
-      await expect(buscarLinhas("8000")).resolves.toEqual([]);
+      await expect(buscarLinhas("8000")).rejects.toThrow("Network Error");
       expect(console.error).toHaveBeenCalledWith(
         "Erro ao buscar linhas:",
         "Network Error"
@@ -97,10 +97,12 @@ describe("sptransAPI", () => {
       );
     });
 
-    it("retorna array vazio em falha", async () => {
+    it("propaga erro em falha", async () => {
       vi.spyOn(api, "get").mockRejectedValueOnce(new Error("Erro no servidor"));
 
-      await expect(buscarParadasPorLinha(101)).resolves.toEqual([]);
+      await expect(buscarParadasPorLinha(101)).rejects.toThrow(
+        "Erro no servidor"
+      );
       expect(console.error).toHaveBeenCalledWith(
         "Erro ao buscar paradas:",
         "Erro no servidor"
@@ -126,10 +128,10 @@ describe("sptransAPI", () => {
       await expect(buscarPosicaoDosOnibus(101)).resolves.toEqual([]);
     });
 
-    it("retorna array vazio e registra erro em falha", async () => {
+    it("propaga erro e registra falha", async () => {
       vi.spyOn(api, "get").mockRejectedValueOnce(new Error("Timeout"));
 
-      await expect(buscarPosicaoDosOnibus(101)).resolves.toEqual([]);
+      await expect(buscarPosicaoDosOnibus(101)).rejects.toThrow("Timeout");
       expect(console.error).toHaveBeenCalledWith(
         "Erro ao buscar posicao dos onibus:",
         "Timeout"
@@ -159,12 +161,14 @@ describe("sptransAPI", () => {
       );
     });
 
-    it("retorna null e registra erro em falha", async () => {
+    it("propaga erro e registra falha", async () => {
       vi.spyOn(api, "get").mockRejectedValueOnce(
         new Error("Parada nao encontrada")
       );
 
-      await expect(buscarPrevisao(10, 101)).resolves.toBeNull();
+      await expect(buscarPrevisao(10, 101)).rejects.toThrow(
+        "Parada nao encontrada"
+      );
       expect(console.error).toHaveBeenCalledWith(
         "Erro ao buscar previsao:",
         "Parada nao encontrada"

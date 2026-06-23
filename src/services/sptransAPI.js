@@ -23,7 +23,7 @@ export async function buscarLinhas(termo) {
     return resp.data;
   } catch (err) {
     console.error("Erro ao buscar linhas:", err.message);
-    return [];
+    throw err;
   }
 }
 
@@ -34,7 +34,7 @@ export async function buscarParadasPorLinha(codigoLinha) {
     return resp.data;
   } catch (err) {
     console.error("Erro ao buscar paradas:", err.message);
-    return [];
+    throw err;
   }
 }
 
@@ -45,7 +45,7 @@ export async function buscarPosicaoDosOnibus(codigoLinha) {
     return resp.data?.vs || [];
   } catch (err) {
     console.error("Erro ao buscar posicao dos onibus:", err.message);
-    return [];
+    throw err;
   }
 }
 
@@ -56,7 +56,7 @@ export async function buscarPrevisao(codigoParada, codigoLinha) {
     return resp.data;
   } catch (err) {
     console.error("Erro ao buscar previsao:", err.message);
-    return null;
+    throw err;
   }
 }
 
