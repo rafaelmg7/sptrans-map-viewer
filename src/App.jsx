@@ -287,13 +287,13 @@ function App() {
 
           <div className="action-row">
             <label className="field select-field">
-              <span>Linha encontrada</span>
+              <span>Linha e sentido</span>
               <select
                 value={linhaSelecionada?.cl ?? ""}
                 disabled={linhas.length === 0}
                 onChange={(e) =>
                   setLinhaSelecionada(
-                    linhas.find((l) => l.cl === Number(e.target.value)) ?? null
+                    linhas.find((l) => String(l.cl) === e.target.value) ?? null
                   )
                 }
               >
@@ -302,7 +302,7 @@ function App() {
                 </option>
                 {linhas.map((l) => (
                   <option key={l.cl} value={l.cl}>
-                    {l.lt} - {l.tp} ⇄ {l.ts}
+                    {formatarLinhaEncontrada(l)}
                   </option>
                 ))}
               </select>
