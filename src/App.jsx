@@ -47,6 +47,27 @@ function formatarSentidoLinha(linha) {
   return `sentido ${linha.sl}`;
 }
 
+function formatarTrajetoLinha(linha) {
+  const terminalPrincipal = temValor(linha?.tp)
+    ? linha.tp
+    : "Origem nao informada";
+  const terminalSecundario = temValor(linha?.ts)
+    ? linha.ts
+    : "Destino nao informado";
+  const sentido = Number(linha?.sl);
+
+  if (sentido === 1) {
+    return `${terminalPrincipal} -> ${terminalSecundario}`;
+  }
+
+  if (sentido === 2) {
+    return `${terminalSecundario} -> ${terminalPrincipal}`;
+  }
+
+  return `${terminalPrincipal} <-> ${terminalSecundario}`;
+}
+
+
 function App() {
   const [termo, setTermo] = useState("");
   const [linhas, setLinhas] = useState([]);
