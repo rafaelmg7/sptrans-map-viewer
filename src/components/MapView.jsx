@@ -111,6 +111,10 @@ function agruparParadas(paradas = []) {
   }));
 }
 
+function criarChavePrevisao(codigoParada, codigoLinha) {
+  return `${codigoParada}:${codigoLinha ?? "sem-linha"}`;
+}
+
 export default function MapView({
   linhasAtivas = [],
   paradas = [],
@@ -130,30 +134,69 @@ export default function MapView({
     temCoordenadasValidas(veiculoComLinha.dados)
   );
 
-  async function handleClickParada(parada) {
-    if (!dadosDoMapa.codigoLinha) {
-      setPrevisoes((prev) => ({
-        ...prev,
-        [parada.cp]: [],
+  async function carregarPrevisaoDaLinha(parada, linha) {
+    const codigoLinhaPrevisao = linha?.codigo ?? dadosDoMapa.codigoLinha;
+    const chave = criarChavePrevisao(parada.cp, codigoLinhaPrevisao);
+
+    if (previsoes[chave]) {
+      return;
+    }
+
+    if (!codigoLinhaPrevisao) {
+      setPrevisoes((previsoesAtuais) => ({
+        ...previsoesAtuais,
+        [chave]: { carregando: false, veiculos: [], erro: null },
       }));
       return;
     }
 
+    setPrevisoes((previsoesAtuais) => ({
+      ...previsoesAtuais,
+      [chave]: { carregando: true, veiculos: [], erro: null },
+    }));
+
     try {
-      const data = await buscarPrevisao(parada.cp, dadosDoMapa.codigoLinha);
+      const data = await buscarPrevisao(parada.cp, codigoLinhaPrevisao);
       const veiculos = normalizarPrevisoes(data);
 
-      setPrevisoes((prev) => ({
-        ...prev,
-        [parada.cp]: veiculos,
+      setPrevisoes((previsoesAtuais) => ({
+        ...previsoesAtuais,
+        [chave]: { carregando: false, veiculos, erro: null },
       }));
     } catch (err) {
       console.error("Erro ao buscar previsão:", err);
-      setPrevisoes((prev) => ({
-        ...prev,
-        [parada.cp]: [],
+      setPrevisoes((previsoesAtuais) => ({
+        ...previsoesAtuais,
+        [chave]: { carregando: false, veiculos: [], erro: "Erro" },
       }));
     }
+  }
+
+  function renderizarPrevisaoDaLinha(parada, linha) {
+    const codigoLinhaPrevisao = linha?.codigo ?? dadosDoMapa.codigoLinha;
+    const chave = criarChavePrevisao(parada.cp, codigoLinhaPrevisao);
+    const previsao = previsoes[chave];
+
+    if (!previsao) {
+      return null;
+    }
+
+    if (previsao.carregando) {
+      return <span>Carregando previsão...</span>;
+    }
+
+    if (previsao.veiculos.length === 0) {
+      return <span>Sem previsão disponível</span>;
+    }
+
+    return previsao.veiculos.map((v, i) => (
+      <div key={i}>
+        Previsão: <br /> 🚌 <b>{v.linha}</b> — {v.horario}
+        {v.minutos !== null && v.minutos !== undefined
+          ? ` (${v.minutos} min)`
+          : ""}
+      </div>
+    ));
   }
 
   return (
@@ -176,7 +219,11 @@ export default function MapView({
             grupo.quantidadeLinhas > 1 ? iconeParadaCompartilhada : iconeParada
           }
           eventHandlers={{
-            click: () => handleClickParada(grupo.parada),
+            click: () => {
+              if (grupo.linhas.length === 0) {
+                carregarPrevisaoDaLinha(grupo.parada, null);
+              }
+            },
           }}
         >
           <Popup>
@@ -213,19 +260,25 @@ export default function MapView({
               </>
             )}
             <hr />
-            {previsoes[grupo.parada.cp] ? (
-              previsoes[grupo.parada.cp].length > 0 ? (
-                previsoes[grupo.parada.cp].map((v, i) => (
-                  <div key={i}>
-                    Previsão: <br /> 🚌 <b>{v.linha}</b> — {v.horario}
-                    {v.minutos !== null && v.minutos !== undefined
-                      ? ` (${v.minutos} min)`
-                      : ""}
-                  </div>
-                ))
-              ) : (
-                <span>Sem previsão disponível</span>
-              )
+            {grupo.linhas.length > 0 ? (
+              grupo.linhas.map((linha) => (
+                <div key={`previsao-${linha.codigo ?? linha.descricao}`}>
+                  <button
+                    type="button"
+                    aria-label={`Carregar previsao ${
+                      linha.descricao ?? linha.codigo
+                    }`}
+                    onClick={() => carregarPrevisaoDaLinha(grupo.parada, linha)}
+                  >
+                    {linha.descricao ?? linha.codigo}
+                  </button>
+                  {renderizarPrevisaoDaLinha(grupo.parada, linha)}
+                </div>
+              ))
+            ) : previsoes[
+                criarChavePrevisao(grupo.parada.cp, dadosDoMapa.codigoLinha)
+              ] ? (
+              renderizarPrevisaoDaLinha(grupo.parada, null)
             ) : (
               <span>Clique para carregar previsões...</span>
             )}
