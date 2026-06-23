@@ -1,13 +1,13 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import { AUTO_UPDATE_INTERVAL_MS } from "./config";
 import {
   autenticarSPTrans,
   buscarLinhas,
   buscarParadasPorLinha,
   buscarPosicaoDosOnibus,
 } from "./services/sptransAPI";
-import { AUTO_UPDATE_INTERVAL_MS } from "./config";
 
 vi.mock("./services/sptransAPI", () => ({
   autenticarSPTrans: vi.fn(),
@@ -43,11 +43,20 @@ async function buscarPorLinha(termo) {
   await aguardarPromises();
 }
 
-async function selecionarLinhaEExibirNoMapa(codigoLinha) {
-  fireEvent.change(screen.getByRole("combobox"), {
-    target: { value: String(codigoLinha) },
+function selecionarCodigos(...codigosLinha) {
+  const codigos = codigosLinha.map(String);
+  const seletor = screen.getByLabelText("Linha e sentido");
+
+  Array.from(seletor.options).forEach((option) => {
+    option.selected = codigos.includes(option.value);
   });
-  fireEvent.click(screen.getByRole("button", { name: "Mostrar no mapa" }));
+
+  fireEvent.change(seletor);
+}
+
+async function selecionarLinhasEAdicionarAoMapa(...codigosLinha) {
+  selecionarCodigos(...codigosLinha);
+  fireEvent.click(screen.getByRole("button", { name: "Adicionar ao mapa" }));
   await aguardarPromises();
 }
 
@@ -91,7 +100,7 @@ describe("App", () => {
       expect(screen.getByLabelText("Linha e sentido")).toBeDisabled();
       expect(screen.getByRole("button", { name: "Buscar" })).toBeDisabled();
       expect(
-        screen.getByRole("button", { name: "Mostrar no mapa" }),
+        screen.getByRole("button", { name: "Adicionar ao mapa" }),
       ).toBeDisabled();
       expect(
         screen.getByRole("button", { name: "Atualizar agora" }),
@@ -111,7 +120,7 @@ describe("App", () => {
       await buscarPorLinha("8000");
 
       expect(buscarLinhas).toHaveBeenCalledWith("8000");
-      expect(screen.getByRole("combobox")).toBeInTheDocument();
+      expect(screen.getByRole("listbox")).toBeInTheDocument();
       expect(
         screen.getByRole("option", { name: /8000-10/ }),
       ).toBeInTheDocument();
@@ -153,7 +162,7 @@ describe("App", () => {
         }),
       ).toBeInTheDocument();
 
-      await selecionarLinhaEExibirNoMapa(34041);
+      await selecionarLinhasEAdicionarAoMapa(34041);
 
       expect(buscarParadasPorLinha).toHaveBeenCalledWith(34041);
       expect(buscarPosicaoDosOnibus).toHaveBeenCalledWith(34041);
@@ -191,6 +200,70 @@ describe("App", () => {
 
       expect(buscarLinhas).toHaveBeenLastCalledWith("8000");
     });
+
+    it("deve permitir selecionar varias linhas e habilitar a adicao ao mapa", async () => {
+      buscarLinhas.mockResolvedValueOnce([
+        { cl: 101, lt: "8000-10", tp: "A", ts: "B" },
+        { cl: 102, lt: "8001-10", tp: "C", ts: "D" },
+      ]);
+
+      render(<App />);
+      await buscarPorLinha("8000");
+
+      const seletor = screen.getByLabelText("Linha e sentido");
+      expect(seletor).toHaveAttribute("multiple");
+
+      const botaoAdicionar = screen.getByRole("button", {
+        name: "Adicionar ao mapa",
+      });
+      expect(botaoAdicionar).toBeDisabled();
+
+      selecionarCodigos(101, 102);
+
+      expect(botaoAdicionar).toBeEnabled();
+    });
+
+    it("deve limitar a adicao a 5 linhas e avisar quando a selecao exceder o limite", async () => {
+      const linhasMock = Array.from({ length: 6 }, (_, indice) => ({
+        cl: 100 + indice,
+        lt: `800${indice}`,
+        tp: `Terminal ${indice}`,
+        ts: `Bairro ${indice}`,
+      }));
+      buscarLinhas.mockResolvedValueOnce(linhasMock);
+      buscarParadasPorLinha.mockResolvedValue([]);
+      buscarPosicaoDosOnibus.mockResolvedValue([]);
+
+      render(<App />);
+      await buscarPorLinha("800");
+      await selecionarLinhasEAdicionarAoMapa(100, 101, 102, 103, 104, 105);
+
+      expect(buscarParadasPorLinha).toHaveBeenCalledTimes(5);
+      expect(buscarParadasPorLinha).toHaveBeenNthCalledWith(1, 100);
+      expect(buscarParadasPorLinha).toHaveBeenNthCalledWith(5, 104);
+      expect(buscarParadasPorLinha).not.toHaveBeenCalledWith(105);
+
+      const avisoLimite = screen.getByText("Limite de 5 linhas no mapa.");
+      expect(avisoLimite).toHaveAttribute("role", "status");
+    });
+
+    it("nao deve adicionar novamente linhas que ja estao ativas", async () => {
+      buscarLinhas.mockResolvedValueOnce([
+        { cl: 101, lt: "8000-10", tp: "A", ts: "B" },
+        { cl: 102, lt: "8001-10", tp: "C", ts: "D" },
+      ]);
+      buscarParadasPorLinha.mockResolvedValue([]);
+      buscarPosicaoDosOnibus.mockResolvedValue([]);
+
+      render(<App />);
+      await buscarPorLinha("8000");
+      await selecionarLinhasEAdicionarAoMapa(101);
+      await selecionarLinhasEAdicionarAoMapa(101, 102);
+
+      expect(buscarParadasPorLinha).toHaveBeenCalledTimes(2);
+      expect(buscarParadasPorLinha).toHaveBeenNthCalledWith(1, 101);
+      expect(buscarParadasPorLinha).toHaveBeenNthCalledWith(2, 102);
+    });
   });
 
   describe("Integração com Mapa Operacional", () => {
@@ -207,7 +280,7 @@ describe("App", () => {
 
       render(<App />);
       await buscarPorLinha("8000");
-      await selecionarLinhaEExibirNoMapa(101);
+      await selecionarLinhasEAdicionarAoMapa(101);
 
       expect(buscarParadasPorLinha).toHaveBeenCalledWith(101);
       expect(buscarPosicaoDosOnibus).toHaveBeenCalledTimes(1);
@@ -230,7 +303,7 @@ describe("App", () => {
 
       render(<App />);
       await buscarPorLinha("8000");
-      await selecionarLinhaEExibirNoMapa(101);
+      await selecionarLinhasEAdicionarAoMapa(101);
 
       fireEvent.click(screen.getByRole("button", { name: "Limpar painel" }));
 
@@ -251,7 +324,7 @@ describe("App", () => {
 
       render(<App />);
       await buscarPorLinha("8000");
-      await selecionarLinhaEExibirNoMapa(101);
+      await selecionarLinhasEAdicionarAoMapa(101);
       expect(buscarPosicaoDosOnibus).toHaveBeenCalledTimes(1);
 
       await avancarTempoParaProximaAtualizacao();
@@ -270,7 +343,7 @@ describe("App", () => {
 
       render(<App />);
       await buscarPorLinha("8000");
-      await selecionarLinhaEExibirNoMapa(101);
+      await selecionarLinhasEAdicionarAoMapa(101);
 
       fireEvent.click(screen.getByLabelText("Autoatualizar a cada 5s"));
       await avancarTempoParaProximaAtualizacao();
@@ -287,7 +360,7 @@ describe("App", () => {
 
       render(<App />);
       await buscarPorLinha("8000");
-      await selecionarLinhaEExibirNoMapa(101);
+      await selecionarLinhasEAdicionarAoMapa(101);
 
       fireEvent.click(screen.getByRole("button", { name: "Atualizar agora" }));
       await aguardarPromises();
