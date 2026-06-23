@@ -198,6 +198,11 @@ function App() {
     }
   };
 
+  const sincronizarLinhasAtivas = (proximasLinhasAtivas) => {
+    linhasAtivasRef.current = proximasLinhasAtivas;
+    setLinhasAtivas(proximasLinhasAtivas);
+  };
+
   const atualizarTodasLinhasAtivas = async (
     linhasParaAtualizar = linhasAtivasRef.current,
   ) => {
@@ -268,11 +273,25 @@ function App() {
     });
 
     const proximasLinhasAtivas = [...linhasAtivas, ...novasLinhasAtivas];
-    linhasAtivasRef.current = proximasLinhasAtivas;
-    setLinhasAtivas(proximasLinhasAtivas);
+    sincronizarLinhasAtivas(proximasLinhasAtivas);
     setCodigosSelecionados([]);
 
     await atualizarTodasLinhasAtivas(novasLinhasAtivas);
+    configurarAutoAtualizacao();
+  };
+
+  const removerLinhaAtiva = (id) => {
+    const proximasLinhasAtivas = linhasAtivas.filter(
+      (linhaAtiva) => linhaAtiva.id !== id,
+    );
+
+    sincronizarLinhasAtivas(proximasLinhasAtivas);
+
+    if (proximasLinhasAtivas.length === 0) {
+      limparIntervalo();
+      return;
+    }
+
     configurarAutoAtualizacao();
   };
 
@@ -281,8 +300,7 @@ function App() {
     setTermo("");
     setLinhas([]);
     setCodigosSelecionados([]);
-    linhasAtivasRef.current = [];
-    setLinhasAtivas([]);
+    sincronizarLinhasAtivas([]);
     setMensagemSelecao("");
     setBuscaRealizada(false);
   };
@@ -307,7 +325,6 @@ function App() {
   const totalParadas = contarParadasAgrupadas(linhasAtivas);
   const totalOnibus = somarVeiculos(linhasAtivas);
   const ultimaLinhaAtiva = linhasAtivas[linhasAtivas.length - 1] ?? null;
-  const descricaoUltimaLinhaAtiva = ultimaLinhaAtiva?.descricao ?? null;
   const ultimaAtualizacao = linhasAtivas.reduce((maisRecente, linhaAtiva) => {
     if (!linhaAtiva.ultimaAtualizacao) {
       return maisRecente;
@@ -320,6 +337,21 @@ function App() {
     return maisRecente;
   }, null);
   const tamanhoSeletor = linhas.length > 0 ? Math.min(linhas.length, 6) : 1;
+  const descreverStatusLinha = (linhaAtiva) => {
+    if (linhaAtiva.carregando) {
+      return "Carregando";
+    }
+
+    if (linhaAtiva.erro) {
+      return linhaAtiva.erro;
+    }
+
+    if (linhaAtiva.ultimaAtualizacao) {
+      return "Atualizada";
+    }
+
+    return "Aguardando";
+  };
 
   return (
     <div className="app-shell">
@@ -463,14 +495,32 @@ function App() {
             </div>
           </div>
 
-          {descricaoUltimaLinhaAtiva && (
-            <div className="selected-line" aria-label="Linha ativa">
-              <span>
-                {linhasAtivas.length === 1
-                  ? "Linha ativa"
-                  : `${linhasAtivas.length} linhas no mapa`}
-              </span>
-              <strong>{descricaoUltimaLinhaAtiva}</strong>
+          {linhasAtivas.length > 0 && (
+            <div className="active-lines" aria-label="Linhas no mapa">
+              <span>Linhas no mapa</span>
+              <ul>
+                {linhasAtivas.map((linhaAtiva) => (
+                  <li key={linhaAtiva.id}>
+                    <span
+                      className="line-color"
+                      aria-label={`Cor da linha ${linhaAtiva.descricao}`}
+                      style={{ backgroundColor: linhaAtiva.cor }}
+                    />
+                    <strong>{linhaAtiva.descricao}</strong>
+                    <span className="line-status">
+                      {descreverStatusLinha(linhaAtiva)}
+                    </span>
+                    <button
+                      className="remove-line-button"
+                      type="button"
+                      aria-label={`Remover linha ${linhaAtiva.descricao}`}
+                      onClick={() => removerLinhaAtiva(linhaAtiva.id)}
+                    >
+                      Remover
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
