@@ -1,33 +1,106 @@
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import { useState } from "react";
-import busIcon from "../assets/bus3.svg";
-import busStopIcon from "../assets/bus-stop.svg";
-import { buscarPrevisao } from "../services/sptransAPI";
+import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
+import { COR_PARADA_COMPARTILHADA } from "../linhasAtivas";
 import { normalizarPrevisoes } from "../services/normalizarPrevisao";
+import { buscarPrevisao } from "../services/sptransAPI";
 
-// Ícones customizados
-const iconeOnibus = new L.Icon({
-  iconUrl: busIcon,
-  iconSize: [30, 30],
-  iconAnchor: [20, 40],
-  popupAnchor: [0, -40],
-});
+const COR_PARADA_PADRAO = "#0369a1";
+const COR_ONIBUS_PADRAO = "#b91c1c";
+const PADRAO_COR_HEX = /^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/;
+const iconesPorChave = new Map();
 
-const iconeParada = new L.Icon({
-  iconUrl: busStopIcon,
-  iconSize: [35, 35],
-  iconAnchor: [17, 35],
-  popupAnchor: [0, -35],
-});
+function normalizarCor(cor, fallback) {
+  if (typeof cor !== "string") {
+    return fallback;
+  }
 
-const iconeParadaCompartilhada = new L.Icon({
-  iconUrl: busStopIcon,
-  iconSize: [42, 42],
-  iconAnchor: [21, 42],
-  popupAnchor: [0, -42],
-  className: "shared-stop-marker",
-});
+  const corNormalizada = cor.trim();
+  return PADRAO_COR_HEX.test(corNormalizada) ? corNormalizada : fallback;
+}
+
+function criarUrlSvg(svg) {
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+function criarSvgOnibus(cor) {
+  return `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+      <circle cx="32" cy="32" r="30" fill="${cor}"/>
+      <path d="M15 30c0-9 2-16 17-16s17 7 17 16v13c0 4-3 7-7 7v4c0 2-2 4-4 4s-4-2-4-4v-4h-4v4c0 2-2 4-4 4s-4-2-4-4v-4c-4 0-7-3-7-7V30z" fill="#111827"/>
+      <path d="M21 22h22v12H21z" fill="#ffffff"/>
+      <circle cx="24" cy="43" r="3" fill="#ffffff"/>
+      <circle cx="40" cy="43" r="3" fill="#ffffff"/>
+      <path d="M23 18h18" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+    </svg>
+  `;
+}
+
+function criarSvgParada(cor) {
+  return `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+      <path d="M32 3C20.4 3 11 12.4 11 24c0 15.8 21 37 21 37s21-21.2 21-37C53 12.4 43.6 3 32 3z" fill="${cor}"/>
+      <circle cx="32" cy="24" r="14" fill="#ffffff"/>
+      <path d="M24 19c0-4 3-7 8-7s8 3 8 7v11c0 2-2 4-4 4v3h-3v-3h-2v3h-3v-3c-2 0-4-2-4-4V19z" fill="#111827"/>
+      <path d="M28 18h8v6h-8z" fill="#ffffff"/>
+      <circle cx="28" cy="29" r="1.6" fill="#ffffff"/>
+      <circle cx="36" cy="29" r="1.6" fill="#ffffff"/>
+    </svg>
+  `;
+}
+
+function criarIconePorChave(chave, opcoes) {
+  if (!iconesPorChave.has(chave)) {
+    iconesPorChave.set(chave, new L.Icon(opcoes));
+  }
+
+  return iconesPorChave.get(chave);
+}
+
+function criarIconeOnibus(cor) {
+  const markerColor = normalizarCor(cor, COR_ONIBUS_PADRAO);
+
+  return criarIconePorChave(`onibus:${markerColor}`, {
+    iconUrl: criarUrlSvg(criarSvgOnibus(markerColor)),
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -18],
+    markerColor,
+  });
+}
+
+function criarIconeParada(cor) {
+  const markerColor = normalizarCor(cor, COR_PARADA_PADRAO);
+
+  return criarIconePorChave(`parada:${markerColor}`, {
+    iconUrl: criarUrlSvg(criarSvgParada(markerColor)),
+    iconSize: [38, 38],
+    iconAnchor: [19, 38],
+    popupAnchor: [0, -38],
+    markerColor,
+  });
+}
+
+function criarIconeParadaCompartilhada() {
+  const markerColor = COR_PARADA_COMPARTILHADA;
+
+  return criarIconePorChave(`parada-compartilhada:${markerColor}`, {
+    iconUrl: criarUrlSvg(criarSvgParada(markerColor)),
+    iconSize: [44, 44],
+    iconAnchor: [22, 44],
+    popupAnchor: [0, -44],
+    className: "shared-stop-marker",
+    markerColor,
+  });
+}
+
+function obterIconeParadaAgrupada(grupo) {
+  if (grupo.quantidadeLinhas > 1) {
+    return criarIconeParadaCompartilhada();
+  }
+
+  return criarIconeParada(grupo.linhas[0]?.cor);
+}
 
 function extrairDadosDoMapa({ linhasAtivas, paradas, onibus, codigoLinha }) {
   if (linhasAtivas.length === 0) {
@@ -131,7 +204,7 @@ export default function MapView({
   const center = [-23.55052, -46.633308]; // centro de SP
   const paradasAgrupadas = agruparParadas(dadosDoMapa.paradas);
   const onibusComCoordenadas = dadosDoMapa.onibus.filter((veiculoComLinha) =>
-    temCoordenadasValidas(veiculoComLinha.dados)
+    temCoordenadasValidas(veiculoComLinha.dados),
   );
 
   async function carregarPrevisaoDaLinha(parada, linha) {
@@ -210,14 +283,12 @@ export default function MapView({
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
 
-      {/* Paradas (azul) */}
+      {/* Paradas */}
       {paradasAgrupadas.map((grupo) => (
         <Marker
           key={grupo.parada.cp}
           position={[grupo.parada.py, grupo.parada.px]}
-          icon={
-            grupo.quantidadeLinhas > 1 ? iconeParadaCompartilhada : iconeParada
-          }
+          icon={obterIconeParadaAgrupada(grupo)}
           eventHandlers={{
             click: () => {
               if (grupo.linhas.length === 0) {
@@ -286,12 +357,12 @@ export default function MapView({
         </Marker>
       ))}
 
-      {/* Ônibus (vermelho) */}
+      {/* Ônibus */}
       {onibusComCoordenadas.map(({ dados: v, linha }) => (
         <Marker
           key={`${linha?.descricao ?? "sem-linha"}-${v.p}`}
           position={[v.py, v.px]}
-          icon={iconeOnibus}
+          icon={criarIconeOnibus(linha?.cor)}
         >
           <Popup>
             🚌 Ônibus {v.p}

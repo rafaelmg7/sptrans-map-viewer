@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { COR_PARADA_COMPARTILHADA, PALETA_CORES_LINHAS } from "../linhasAtivas";
 import { buscarPrevisao } from "../services/sptransAPI";
 import MapView from "./MapView";
 
@@ -26,6 +27,8 @@ vi.mock("react-leaflet", async () => {
         {
           "data-testid": "marker",
           "data-icon-class": icon?.options?.className ?? "",
+          "data-icon-url": icon?.options?.iconUrl ?? "",
+          "data-marker-color": icon?.options?.markerColor ?? "",
           "data-position": JSON.stringify(position),
         },
         React.createElement(
@@ -237,6 +240,49 @@ describe("MapView", () => {
     expect(marcadorParada).toHaveAttribute(
       "data-icon-class",
       "shared-stop-marker",
+    );
+    expect(marcadorParada).toHaveAttribute(
+      "data-marker-color",
+      COR_PARADA_COMPARTILHADA,
+    );
+    expect(PALETA_CORES_LINHAS).not.toContain(COR_PARADA_COMPARTILHADA);
+  });
+
+  it("usa a cor da linha nos icones de parada simples e onibus", () => {
+    render(
+      <MapView
+        linhasAtivas={[
+          {
+            id: "101",
+            descricao: "Linha 101",
+            cor: "#0f766e",
+            linha: { cl: 101 },
+            paradas: [{ cp: 10, np: "Parada Paulista", py: -23.5, px: -46.6 }],
+            onibus: [
+              {
+                p: "BUS-1",
+                py: -23.51,
+                px: -46.61,
+                ta: "2026-06-22T12:00:00Z",
+              },
+            ],
+          },
+        ]}
+      />,
+    );
+
+    const [marcadorParada, marcadorOnibus] = screen.getAllByTestId("marker");
+    const corCodificada = encodeURIComponent("#0f766e");
+
+    expect(marcadorParada).toHaveAttribute("data-marker-color", "#0f766e");
+    expect(marcadorOnibus).toHaveAttribute("data-marker-color", "#0f766e");
+    expect(marcadorParada).toHaveAttribute(
+      "data-icon-url",
+      expect.stringContaining(corCodificada),
+    );
+    expect(marcadorOnibus).toHaveAttribute(
+      "data-icon-url",
+      expect.stringContaining(corCodificada),
     );
   });
 

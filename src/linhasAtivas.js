@@ -1,10 +1,11 @@
-const PALETA_CORES_LINHAS = [
+export const PALETA_CORES_LINHAS = [
   "#0f766e",
   "#0369a1",
   "#b45309",
   "#b91c1c",
   "#4338ca",
 ];
+export const COR_PARADA_COMPARTILHADA = "#111827";
 
 export const MAX_ACTIVE_LINES = 5;
 export const MENSAGEM_LIMITE_LINHAS = `Limite de ${MAX_ACTIVE_LINES} linhas no mapa.`;
