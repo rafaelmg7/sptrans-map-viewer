@@ -3,6 +3,15 @@ import "./App.css";
 import MapView from "./components/MapView";
 import { AUTO_UPDATE_INTERVAL_MS } from "./config";
 import {
+  algumaLinhaCarregando,
+  calcularCodigosParaAdicionar,
+  contarParadasAgrupadas,
+  MENSAGEM_LIMITE_LINHAS,
+  montarLinhaAtivaInicial,
+  obterCorDisponivel,
+  somarVeiculos,
+} from "./linhasAtivas";
+import {
   autenticarSPTrans,
   buscarLinhas,
   buscarParadasPorLinha,
@@ -78,55 +87,14 @@ function formatarLinhaEncontrada(linha) {
     .join(" | ");
 }
 
-const MAX_ACTIVE_LINES = 5;
-const MENSAGEM_LIMITE_LINHAS = `Limite de ${MAX_ACTIVE_LINES} linhas no mapa.`;
-
-function obterCodigosUnicos(codigos = []) {
-  const codigosUnicos = [];
-
-  codigos.forEach((codigo) => {
-    if (!temValor(codigo)) {
-      return;
-    }
-
-    const codigoNormalizado = String(codigo);
-
-    if (!codigosUnicos.includes(codigoNormalizado)) {
-      codigosUnicos.push(codigoNormalizado);
-    }
-  });
-
-  return codigosUnicos;
-}
-
-function calcularCodigosParaAdicionar({
-  codigosSelecionados,
-  codigosAtivos,
-  limite = MAX_ACTIVE_LINES,
-}) {
-  const selecionados = obterCodigosUnicos(codigosSelecionados);
-  const ativos = new Set(obterCodigosUnicos(codigosAtivos));
-  const candidatos = selecionados.filter((codigo) => !ativos.has(codigo));
-  const vagasDisponiveis = Math.max(limite - ativos.size, 0);
-
-  return {
-    codigosParaAdicionar: candidatos.slice(0, vagasDisponiveis),
-    limiteAtingido: candidatos.length > vagasDisponiveis,
-  };
-}
-
 function App() {
   const [termo, setTermo] = useState("");
   const [linhas, setLinhas] = useState([]);
   const [codigosSelecionados, setCodigosSelecionados] = useState([]);
   const [linhasAtivas, setLinhasAtivas] = useState([]);
-  const [paradas, setParadas] = useState([]);
-  const [onibus, setOnibus] = useState([]);
   const [buscandoLinhas, setBuscandoLinhas] = useState(false);
-  const [carregandoMapa, setCarregandoMapa] = useState(false);
   const [historicoBuscas, setHistoricoBuscas] = useState([]);
   const [autoAtualizar, setAutoAtualizar] = useState(true);
-  const [ultimaAtualizacao, setUltimaAtualizacao] = useState(null);
   const [buscaRealizada, setBuscaRealizada] = useState(false);
   const [mensagemSelecao, setMensagemSelecao] = useState("");
   const intervalRef = useRef(null);
@@ -156,9 +124,6 @@ function App() {
       setLinhas([]);
       setCodigosSelecionados([]);
       setLinhasAtivas([]);
-      setParadas([]);
-      setOnibus([]);
-      setUltimaAtualizacao(null);
       setMensagemSelecao("");
       setBuscaRealizada(false);
       limparIntervalo();
@@ -192,35 +157,70 @@ function App() {
     setMensagemSelecao("");
   };
 
-  const atualizarOnibusDaLinha = async (linha) => {
-    const veiculos = await buscarPosicaoDosOnibus(linha.cl);
-    setOnibus(veiculos);
-    setUltimaAtualizacao(new Date());
-    console.log(`Atualizado: ${veiculos.length} veiculos`);
+  const atualizarLinhaAtiva = (id, transformador) => {
+    setLinhasAtivas((linhasAtuais) =>
+      linhasAtuais.map((linhaAtiva) =>
+        linhaAtiva.id === id ? transformador(linhaAtiva) : linhaAtiva,
+      ),
+    );
   };
 
-  const configurarAutoAtualizacao = (linha) => {
+  const atualizarOnibusDaLinha = async (linhaAtiva) => {
+    try {
+      const veiculos = await buscarPosicaoDosOnibus(linhaAtiva.linha.cl);
+
+      atualizarLinhaAtiva(linhaAtiva.id, (linhaAtual) => ({
+        ...linhaAtual,
+        onibus: veiculos,
+        carregando: false,
+        erro: null,
+        ultimaAtualizacao: new Date(),
+      }));
+      console.log(
+        `Atualizado linha ${linhaAtiva.id}: ${veiculos.length} veiculos`,
+      );
+    } catch {
+      atualizarLinhaAtiva(linhaAtiva.id, (linhaAtual) => ({
+        ...linhaAtual,
+        carregando: false,
+        erro: "Erro ao atualizar veiculos",
+      }));
+    }
+  };
+
+  const configurarAutoAtualizacao = (linhaAtiva) => {
     limparIntervalo();
 
-    if (autoAtualizar) {
+    if (autoAtualizar && linhaAtiva) {
       intervalRef.current = setInterval(
-        () => atualizarOnibusDaLinha(linha),
+        () => atualizarOnibusDaLinha(linhaAtiva),
         AUTO_UPDATE_INTERVAL_MS,
       );
     }
   };
 
-  const buscarParadasELocalizacao = async (linha) => {
-    setCarregandoMapa(true);
-
+  const carregarLinhaAtiva = async (linhaAtiva) => {
     try {
-      const paradasData = await buscarParadasPorLinha(linha.cl);
-      setParadas(paradasData);
+      const [paradas, onibus] = await Promise.all([
+        buscarParadasPorLinha(linhaAtiva.linha.cl),
+        buscarPosicaoDosOnibus(linhaAtiva.linha.cl),
+      ]);
 
-      await atualizarOnibusDaLinha(linha);
-      configurarAutoAtualizacao(linha);
-    } finally {
-      setCarregandoMapa(false);
+      atualizarLinhaAtiva(linhaAtiva.id, (linhaAtual) => ({
+        ...linhaAtual,
+        paradas,
+        onibus,
+        carregando: false,
+        erro: null,
+        ultimaAtualizacao: new Date(),
+      }));
+      console.log(`Carregada linha ${linhaAtiva.id}`);
+    } catch {
+      atualizarLinhaAtiva(linhaAtiva.id, (linhaAtual) => ({
+        ...linhaAtual,
+        carregando: false,
+        erro: "Erro ao carregar linha",
+      }));
     }
   };
 
@@ -246,7 +246,7 @@ function App() {
   };
 
   const handleAdicionarLinhasAoMapa = async () => {
-    const codigosAtivos = linhasAtivas.map((linha) => linha.cl);
+    const codigosAtivos = linhasAtivas.map((linhaAtiva) => linhaAtiva.id);
     const { codigosParaAdicionar, limiteAtingido } =
       calcularCodigosParaAdicionar({
         codigosSelecionados,
@@ -266,15 +266,23 @@ function App() {
       .map((codigo) => linhasPorCodigo.get(codigo))
       .filter(Boolean);
 
-    setLinhasAtivas((linhasAtuais) => [
-      ...linhasAtuais,
-      ...linhasParaAdicionar,
-    ]);
+    const novasLinhasAtivas = [];
+
+    linhasParaAdicionar.forEach((linha) => {
+      novasLinhasAtivas.push(
+        montarLinhaAtivaInicial({
+          linha,
+          descricao: formatarLinhaEncontrada(linha),
+          cor: obterCorDisponivel([...linhasAtivas, ...novasLinhasAtivas]),
+        }),
+      );
+    });
+
+    setLinhasAtivas((linhasAtuais) => [...linhasAtuais, ...novasLinhasAtivas]);
     setCodigosSelecionados([]);
 
-    for (const linha of linhasParaAdicionar) {
-      await buscarParadasELocalizacao(linha);
-    }
+    await Promise.all(novasLinhasAtivas.map(carregarLinhaAtiva));
+    configurarAutoAtualizacao(novasLinhasAtivas[novasLinhasAtivas.length - 1]);
   };
 
   const limparPainel = () => {
@@ -283,9 +291,6 @@ function App() {
     setLinhas([]);
     setCodigosSelecionados([]);
     setLinhasAtivas([]);
-    setParadas([]);
-    setOnibus([]);
-    setUltimaAtualizacao(null);
     setMensagemSelecao("");
     setBuscaRealizada(false);
   };
@@ -301,13 +306,23 @@ function App() {
     linhas.length > 0 ||
     codigosSelecionados.length > 0 ||
     linhasAtivas.length > 0 ||
-    paradas.length > 0 ||
-    onibus.length > 0 ||
     mensagemSelecao;
+  const carregandoMapa = algumaLinhaCarregando(linhasAtivas);
+  const totalParadas = contarParadasAgrupadas(linhasAtivas);
+  const totalOnibus = somarVeiculos(linhasAtivas);
   const ultimaLinhaAtiva = linhasAtivas[linhasAtivas.length - 1] ?? null;
-  const descricaoUltimaLinhaAtiva = ultimaLinhaAtiva
-    ? formatarLinhaEncontrada(ultimaLinhaAtiva)
-    : null;
+  const descricaoUltimaLinhaAtiva = ultimaLinhaAtiva?.descricao ?? null;
+  const ultimaAtualizacao = linhasAtivas.reduce((maisRecente, linhaAtiva) => {
+    if (!linhaAtiva.ultimaAtualizacao) {
+      return maisRecente;
+    }
+
+    if (!maisRecente || linhaAtiva.ultimaAtualizacao > maisRecente) {
+      return linhaAtiva.ultimaAtualizacao;
+    }
+
+    return maisRecente;
+  }, null);
   const tamanhoSeletor = linhas.length > 0 ? Math.min(linhas.length, 6) : 1;
 
   return (
@@ -325,15 +340,15 @@ function App() {
 
           <div className="metric-row" aria-label="Resumo do mapa">
             <div>
-              <strong>{linhas.length}</strong>
-              <span>opcoes</span>
+              <strong>{linhasAtivas.length}</strong>
+              <span>linhas</span>
             </div>
             <div>
-              <strong>{paradas.length}</strong>
+              <strong>{totalParadas}</strong>
               <span>paradas</span>
             </div>
             <div>
-              <strong>{onibus.length}</strong>
+              <strong>{totalOnibus}</strong>
               <span>onibus</span>
             </div>
           </div>
@@ -474,14 +489,10 @@ function App() {
           <div className="map-toolbar">
             <span>Mapa operacional</span>
             <strong>
-              {paradas.length} paradas · {onibus.length} veiculos
+              {totalParadas} paradas · {totalOnibus} veiculos
             </strong>
           </div>
-          <MapView
-            paradas={paradas}
-            onibus={onibus}
-            codigoLinha={ultimaLinhaAtiva?.cl ?? null}
-          />
+          <MapView linhasAtivas={linhasAtivas} />
         </section>
       </main>
     </div>
