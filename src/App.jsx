@@ -105,10 +105,9 @@ function App() {
   };
 
   const registrarBusca = (termoBusca) => {
-    setHistoricoBuscas((atual) => [
-      termoBusca,
-      ...atual.filter((item) => item !== termoBusca),
-    ].slice(0, 5));
+    setHistoricoBuscas((atual) =>
+      [termoBusca, ...atual.filter((item) => item !== termoBusca)].slice(0, 5),
+    );
   };
 
   const executarBusca = async (termoBusca) => {
@@ -157,7 +156,7 @@ function App() {
     if (autoAtualizar) {
       intervalRef.current = setInterval(
         () => atualizarOnibusDaLinha(linha),
-        AUTO_UPDATE_INTERVAL_MS
+        AUTO_UPDATE_INTERVAL_MS,
       );
     }
   };
@@ -190,7 +189,7 @@ function App() {
     if (ligado && linhaSelecionada) {
       intervalRef.current = setInterval(
         () => atualizarOnibusDaLinha(linhaSelecionada),
-        AUTO_UPDATE_INTERVAL_MS
+        AUTO_UPDATE_INTERVAL_MS,
       );
     }
   };
@@ -271,7 +270,11 @@ function App() {
               <span>Recentes</span>
               <div>
                 {historicoBuscas.map((item) => (
-                  <button key={item} type="button" onClick={() => repetirBusca(item)}>
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => repetirBusca(item)}
+                  >
                     {item}
                   </button>
                 ))}
@@ -293,12 +296,14 @@ function App() {
                 disabled={linhas.length === 0}
                 onChange={(e) =>
                   setLinhaSelecionada(
-                    linhas.find((l) => String(l.cl) === e.target.value) ?? null
+                    linhas.find((l) => String(l.cl) === e.target.value) ?? null,
                   )
                 }
               >
                 <option value="">
-                  {linhas.length > 0 ? "Selecione uma linha..." : "Busque para selecionar"}
+                  {linhas.length > 0
+                    ? "Selecione uma linha..."
+                    : "Busque para selecionar"}
                 </option>
                 {linhas.map((l) => (
                   <option key={l.cl} value={l.cl}>
