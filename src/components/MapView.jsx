@@ -21,18 +21,94 @@ const iconeParada = new L.Icon({
   popupAnchor: [0, -35],
 });
 
+const iconeParadaCompartilhada = new L.Icon({
+  iconUrl: busStopIcon,
+  iconSize: [42, 42],
+  iconAnchor: [21, 42],
+  popupAnchor: [0, -42],
+  className: "shared-stop-marker",
+});
+
 function extrairDadosDoMapa({ linhasAtivas, paradas, onibus, codigoLinha }) {
   if (linhasAtivas.length === 0) {
-    return { paradas, onibus, codigoLinha };
+    return {
+      paradas: paradas.map((parada) => ({
+        dados: parada,
+        linhas: [],
+      })),
+      onibus: onibus.map((veiculo) => ({ dados: veiculo, linha: null })),
+      codigoLinha,
+    };
   }
 
   const ultimaLinhaAtiva = linhasAtivas[linhasAtivas.length - 1];
 
   return {
-    paradas: linhasAtivas.flatMap((linhaAtiva) => linhaAtiva.paradas ?? []),
-    onibus: linhasAtivas.flatMap((linhaAtiva) => linhaAtiva.onibus ?? []),
+    paradas: linhasAtivas.flatMap((linhaAtiva) =>
+      (linhaAtiva.paradas ?? []).map((parada) => ({
+        dados: parada,
+        linhas: [
+          {
+            codigo: linhaAtiva.linha?.cl,
+            cor: linhaAtiva.cor,
+            descricao: linhaAtiva.descricao,
+          },
+        ],
+      })),
+    ),
+    onibus: linhasAtivas.flatMap((linhaAtiva) =>
+      (linhaAtiva.onibus ?? []).map((veiculo) => ({
+        dados: veiculo,
+        linha: {
+          cor: linhaAtiva.cor,
+          descricao: linhaAtiva.descricao,
+        },
+      })),
+    ),
     codigoLinha: ultimaLinhaAtiva?.linha?.cl ?? null,
   };
+}
+
+function temCoordenadasValidas(item) {
+  return Number.isFinite(item?.py) && Number.isFinite(item?.px);
+}
+
+function agruparParadas(paradas = []) {
+  const gruposPorCodigo = new Map();
+
+  paradas.forEach((paradaComLinha) => {
+    const parada = paradaComLinha.dados;
+
+    if (!temCoordenadasValidas(parada) || parada?.cp === undefined) {
+      return;
+    }
+
+    const codigoParada = String(parada.cp);
+    const grupoAtual = gruposPorCodigo.get(codigoParada);
+
+    if (!grupoAtual) {
+      gruposPorCodigo.set(codigoParada, {
+        parada,
+        linhas: [...paradaComLinha.linhas],
+      });
+      return;
+    }
+
+    paradaComLinha.linhas.forEach((linha) => {
+      const jaIncluida = grupoAtual.linhas.some(
+        (linhaAtual) => String(linhaAtual.codigo) === String(linha.codigo),
+      );
+
+      if (!jaIncluida) {
+        grupoAtual.linhas.push(linha);
+      }
+    });
+  });
+
+  return Array.from(gruposPorCodigo.values()).map((grupo) => ({
+    ...grupo,
+    quantidadeLinhas: grupo.linhas.length,
+  }));
 }
 
 export default function MapView({
@@ -49,11 +125,9 @@ export default function MapView({
     codigoLinha,
   });
   const center = [-23.55052, -46.633308]; // centro de SP
-  const paradasComCoordenadas = dadosDoMapa.paradas.filter(
-    (parada) => Number.isFinite(parada?.py) && Number.isFinite(parada?.px)
-  );
-  const onibusComCoordenadas = dadosDoMapa.onibus.filter(
-    (veiculo) => Number.isFinite(veiculo?.py) && Number.isFinite(veiculo?.px)
+  const paradasAgrupadas = agruparParadas(dadosDoMapa.paradas);
+  const onibusComCoordenadas = dadosDoMapa.onibus.filter((veiculoComLinha) =>
+    temCoordenadasValidas(veiculoComLinha.dados)
   );
 
   async function handleClickParada(parada) {
@@ -94,23 +168,54 @@ export default function MapView({
       />
 
       {/* Paradas (azul) */}
-      {paradasComCoordenadas.map((p) => (
+      {paradasAgrupadas.map((grupo) => (
         <Marker
-          key={p.cp}
-          position={[p.py, p.px]}
-          icon={iconeParada}
+          key={grupo.parada.cp}
+          position={[grupo.parada.py, grupo.parada.px]}
+          icon={
+            grupo.quantidadeLinhas > 1 ? iconeParadaCompartilhada : iconeParada
+          }
           eventHandlers={{
-            click: () => handleClickParada(p),
+            click: () => handleClickParada(grupo.parada),
           }}
         >
           <Popup>
-            <b>{p.np}</b>
+            <b>{grupo.parada.np}</b>
             <br />
-            Código: {p.cp}
+            Código: {grupo.parada.cp}
+            {grupo.quantidadeLinhas > 1 && (
+              <>
+                <br />
+                <span>{grupo.quantidadeLinhas} linhas nesta parada</span>
+              </>
+            )}
+            {grupo.linhas.length > 0 && (
+              <>
+                <hr />
+                <strong>Linhas atendidas</strong>
+                {grupo.linhas.map((linha) => (
+                  <div key={linha.codigo ?? linha.descricao}>
+                    {linha.cor && (
+                      <span
+                        aria-label={`Cor da linha ${linha.descricao}`}
+                        style={{
+                          backgroundColor: linha.cor,
+                          display: "inline-block",
+                          height: 10,
+                          marginRight: 6,
+                          width: 10,
+                        }}
+                      />
+                    )}
+                    <span>{linha.descricao ?? linha.codigo}</span>
+                  </div>
+                ))}
+              </>
+            )}
             <hr />
-            {previsoes[p.cp] ? (
-              previsoes[p.cp].length > 0 ? (
-                previsoes[p.cp].map((v, i) => (
+            {previsoes[grupo.parada.cp] ? (
+              previsoes[grupo.parada.cp].length > 0 ? (
+                previsoes[grupo.parada.cp].map((v, i) => (
                   <div key={i}>
                     Previsão: <br /> 🚌 <b>{v.linha}</b> — {v.horario}
                     {v.minutos !== null && v.minutos !== undefined
@@ -129,10 +234,30 @@ export default function MapView({
       ))}
 
       {/* Ônibus (vermelho) */}
-      {onibusComCoordenadas.map((v) => (
-        <Marker key={v.p} position={[v.py, v.px]} icon={iconeOnibus}>
+      {onibusComCoordenadas.map(({ dados: v, linha }) => (
+        <Marker
+          key={`${linha?.descricao ?? "sem-linha"}-${v.p}`}
+          position={[v.py, v.px]}
+          icon={iconeOnibus}
+        >
           <Popup>
             🚌 Ônibus {v.p}
+            {linha && (
+              <>
+                <br />
+                <span
+                  aria-label={`Cor da linha ${linha.descricao}`}
+                  style={{
+                    backgroundColor: linha.cor,
+                    display: "inline-block",
+                    height: 10,
+                    marginRight: 6,
+                    width: 10,
+                  }}
+                />
+                <span>{linha.descricao}</span>
+              </>
+            )}
             <br />
             Atualizado: {new Date(v.ta).toLocaleTimeString()}
           </Popup>
