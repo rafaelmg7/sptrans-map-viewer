@@ -277,10 +277,9 @@ button:disabled {
   justify-content: flex-end;
 }
 
-.selected-line {
-  display: flex;
+.active-lines {
+  display: grid;
   gap: 10px;
-  align-items: center;
   margin-top: 14px;
   padding: 12px 14px;
   border: 1px solid #bbf7d0;
@@ -289,15 +288,58 @@ button:disabled {
   color: #14532d;
 }
 
-.selected-line span {
+.active-lines > span {
   font-size: 0.78rem;
   font-weight: 800;
   text-transform: uppercase;
 }
 
-.selected-line strong {
+.active-lines ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.active-lines li {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.active-lines strong {
   color: #052e16;
   font-size: 0.95rem;
+  overflow-wrap: anywhere;
+}
+
+.line-color {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(15, 23, 42, 0.16);
+  border-radius: 999px;
+}
+
+.line-status {
+  color: #166534;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.remove-line-button {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid #fecaca;
+  background: #fff1f2;
+  color: #991b1b;
+  font-size: 0.82rem;
+  box-shadow: none;
+}
+
+.remove-line-button:not(:disabled):hover {
+  background: #ffe4e6;
 }
 
 .ghost-button {
