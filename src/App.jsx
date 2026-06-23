@@ -1,13 +1,13 @@
-import { useState, useEffect, useRef } from "react";
-import MapView from "./components/MapView";
+import { useEffect, useRef, useState } from "react";
 import "./App.css";
+import MapView from "./components/MapView";
+import { AUTO_UPDATE_INTERVAL_MS } from "./config";
 import {
   autenticarSPTrans,
   buscarLinhas,
   buscarParadasPorLinha,
   buscarPosicaoDosOnibus,
 } from "./services/sptransAPI";
-import { AUTO_UPDATE_INTERVAL_MS } from "./config";
 
 function temValor(value) {
   return value !== undefined && value !== null && value !== "";
