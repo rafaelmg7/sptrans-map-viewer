@@ -67,6 +67,16 @@ function formatarTrajetoLinha(linha) {
   return `${terminalPrincipal} <-> ${terminalSecundario}`;
 }
 
+function formatarLinhaEncontrada(linha) {
+  return [
+    formatarCodigoLinha(linha),
+    formatarSentidoLinha(linha),
+    formatarTrajetoLinha(linha),
+    temValor(linha?.cl) ? `cl ${linha.cl}` : "",
+  ]
+    .filter(Boolean)
+    .join(" | ");
+}
 
 function App() {
   const [termo, setTermo] = useState("");
